@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend MCP/server implementation work for future follow-up tasks should start from the canonical layer checklist and linked quality rules."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"This assessment identifies connection, observability, and failure-contract gaps; future implementation must preserve MCP-safe error behavior."}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"A primary gap is missing real diagnostics and log capture, so future work needs the backend logging discipline."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Follow-up tasks will likely restructure tests, tool responses, and validation, which should stay aligned with backend quality expectations."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"The identified problems span MCP server, WebSocket transport, plugin UI, and Godot runtime feedback, so cross-layer reasoning is required."}
