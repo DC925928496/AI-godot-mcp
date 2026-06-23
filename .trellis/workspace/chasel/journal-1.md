@@ -104,3 +104,36 @@ Implemented Phase 1 of AI-godot-mcp: WebSocket communication between Node MCP se
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Phase 3: Script Attachment
+
+**Date**: 2026-06-23
+**Task**: Phase 3: Script Attachment
+**Branch**: `main`
+
+### Summary
+
+实现Phase 3脚本附加功能：attach_script和get_resource_uid两个MCP工具，支持GDScript附加、资源验证、UndoRedo集成和事务包裹，包含完整错误处理和测试fixtures
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e065af4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
