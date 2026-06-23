@@ -1,0 +1,41 @@
+{
+  "name": "ai-godot-mcp",
+  "version": "0.1.0",
+  "description": "Game-developer-focused Godot MCP service scaffold built from the legacy godot-mcp project.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "godot",
+    "mcp",
+    "game-development",
+    "ai"
+  ],
+  "bin": {
+    "ai-godot-mcp": "./build/index.js"
+  },
+  "files": [
+    "build",
+    "addons",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test",
+    "watch": "tsc -p tsconfig.json --watch"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@types/ws": "^8.18.1",
+    "ws": "^8.21.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "typescript": "^5.8.3"
+  }
+}
