@@ -21,7 +21,8 @@ func _ready() -> void:
 	_setup_log_capture()
 
 func _generate_token() -> String:
-	return str(Time.get_ticks_msec()) + "_" + str(randi())
+	var crypto = Crypto.new()
+	return crypto.generate_random_bytes(32).hex_encode()
 
 func _save_token_to_file():
 	var dir_path = OS.get_user_data_dir()
@@ -46,12 +47,12 @@ func _process(_delta: float) -> void:
 		if client.get_ready_state() == WebSocketPeer.STATE_OPEN:
 			while client.get_available_packet_count() > 0:
 				var data := client.get_packet().get_string_from_utf8()
-				var response := handle_request(JSON.parse_string(data))
+				var response := handle_request(JSON.parse_string(data), client)
 				client.send_text(JSON.stringify(response))
 		elif client.get_ready_state() == WebSocketPeer.STATE_CLOSED:
 			clients.erase(client)
 
-func handle_request(req: Dictionary) -> Dictionary:
+func handle_request(req: Dictionary, client: WebSocketPeer = null) -> Dictionary:
 	if req.get("auth_token", "") != auth_token:
 		return {"id": req.get("id", ""), "ok": false, "error": {"code": "UNAUTHORIZED", "message": "Invalid token"}}
 	match req.get("method"):
@@ -157,7 +158,7 @@ func _validate_path(path: String) -> bool:
 	return path.begins_with("res://") and not ".." in path
 
 func _validate_class_name(class_name: String) -> bool:
-	var blacklist = ["EditorInterface", "ScriptEditor", "OS", "EditorPlugin", "EditorScript"]
+	var blacklist = ["EditorInterface", "ScriptEditor", "OS", "EditorPlugin", "EditorScript", "FileAccess", "DirAccess", "IP", "HTTPRequest", "Engine"]
 	return class_name not in blacklist
 
 # Write operations

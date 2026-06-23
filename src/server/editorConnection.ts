@@ -15,14 +15,15 @@ export class EditorConnection {
   constructor(private port = 6550) {}
 
   async connect(): Promise<void> {
+    const tokenDir = process.platform === "win32"
+      ? path.join(os.homedir(), "AppData", "Roaming", "Godot", "app_userdata", "ai_godot_mcp")
+      : path.join(os.homedir(), ".local", "share", "godot", "app_userdata", "ai_godot_mcp");
+    const tokenPath = path.join(tokenDir, "ai_mcp_token");
+
     try {
-      const tokenDir = process.platform === "win32"
-        ? path.join(os.homedir(), "AppData", "Roaming", "Godot", "app_userdata", "ai_godot_mcp")
-        : path.join(os.homedir(), ".local", "share", "godot", "app_userdata", "ai_godot_mcp");
-      const tokenPath = path.join(tokenDir, "ai_mcp_token");
       this.authToken = (await fs.readFile(tokenPath, "utf-8")).trim();
-    } catch {
-      this.authToken = "";
+    } catch (err) {
+      throw new Error(`Failed to read auth token from ${tokenPath}. Ensure Godot editor with AI-godot-mcp plugin is running.`);
     }
 
     return this._connect();
@@ -49,8 +50,9 @@ export class EditorConnection {
     });
 
     this.ws.on("close", () => {
-      this._cleanup();
-      if (this.reconnectAttempts < this.maxReconnects) {
+      const shouldReconnect = this.reconnectAttempts < this.maxReconnects;
+      this._cleanup(shouldReconnect);
+      if (shouldReconnect) {
         this.reconnectAttempts++;
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 8000);
         setTimeout(() => this._connect().catch(() => {}), delay);
@@ -74,19 +76,24 @@ export class EditorConnection {
     }, 10000);
   }
 
-  private _cleanup(): void {
+  private _cleanup(isReconnecting = false): void {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
     for (const [id, cb] of this.pending) {
       clearTimeout(cb.timeout);
-      cb.reject(new Error("Connection closed"));
+      cb.reject(new Error(isReconnecting ? "Connection lost, reconnecting..." : "Connection closed"));
     }
     this.pending.clear();
   }
 
   async send(method: string, params?: unknown, txnId?: string | null): Promise<unknown> {
+    const deadline = Date.now() + 5000;
+    while ((!this.ws || this.ws.readyState !== WebSocket.OPEN) && Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket not connected");
     }
