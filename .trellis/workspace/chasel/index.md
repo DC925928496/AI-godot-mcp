@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 2
+- **Total Sessions**: 3
 - **Last Active**: 2026-06-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~73 | Active |
+| `journal-1.md` | ~106 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 3 | 2026-06-23 | Phase 2: Scene Mutations with Transaction Rollback | `9ce9693` | `main` |
 | 2 | 2026-06-23 | 拆分AI-godot-mcp PRD为Phase 2-5独立文档 | `3ca9506` | `main` |
 | 1 | 2026-06-23 | Phase 1: WebSocket MCP Server Implementation | `d4ca46b` | `main` |
 <!-- @@@/auto:session-history -->

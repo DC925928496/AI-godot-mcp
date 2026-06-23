@@ -71,3 +71,36 @@ Implemented Phase 1 of AI-godot-mcp: WebSocket communication between Node MCP se
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Phase 2: Scene Mutations with Transaction Rollback
+
+**Date**: 2026-06-23
+**Task**: Phase 2: Scene Mutations with Transaction Rollback
+**Branch**: `main`
+
+### Summary
+
+实现了 Phase 2 的场景变更与事务回滚功能。添加 8 个 MCP 工具（6 个写操作 + 2 个事务 API），基于 Godot EditorUndoRedoManager 实现延迟执行模型和原子事务。包含自动事务包裹、30 秒超时、Zod 参数验证和完整的失败回滚机制。通过代码质量审查和单元测试。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9ce9693` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
