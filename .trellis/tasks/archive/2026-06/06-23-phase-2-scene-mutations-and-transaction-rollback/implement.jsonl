@@ -1,0 +1,7 @@
+{"path": ".trellis/spec/backend/index.md", "reason": "Backend development checklist and guidelines"}
+{"path": ".trellis/spec/backend/error-handling.md", "reason": "MCP error response patterns for tool failures"}
+{"path": ".trellis/spec/backend/quality-guidelines.md", "reason": "TypeScript quality standards and validation requirements"}
+{"path": "docs/phases/phase-2-scene-mutations.md", "reason": "Complete Phase 2 specification with tool contracts and UndoRedo model"}
+{"path": "src/server/createServer.ts", "reason": "Current tool registration pattern to extend"}
+{"path": "src/server/editorConnection.ts", "reason": "WebSocket communication layer for plugin interaction"}
+{"path": "addons/ai_godot_mcp/websocket_server.gd", "reason": "Plugin-side request handler to add write operations"}
