@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-06-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~238 | Active |
+| `journal-1.md` | ~273 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-06-23 | 修复 P2 级问题：CHANGELOG/测试/CLI/Dock | `c466da0`, `a21a343`, `7501676` | `main` |
 | 7 | 2026-06-23 | 文档同步与 1.0.0 正式发布 | `e98c6d5` | `main` |
 | 6 | 2026-06-23 | Phase 5: CLI打包与发布 | `62cb364` | `main` |
 | 5 | 2026-06-23 | Phase 4: 场景执行与日志捕获实现 | `a1ae699` | `main` |

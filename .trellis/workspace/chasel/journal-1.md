@@ -236,3 +236,38 @@ Implemented Phase 1 of AI-godot-mcp: WebSocket communication between Node MCP se
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: 修复 P2 级问题：CHANGELOG/测试/CLI/Dock
+
+**Date**: 2026-06-23
+**Task**: 修复 P2 级问题：CHANGELOG/测试/CLI/Dock
+**Branch**: `main`
+
+### Summary
+
+完成 Phase 4 Bug 修复的 P2 级任务：对齐 CHANGELOG 工具名、扩展测试覆盖（新增 editorConnection.test.ts 和 mock-godot-server.js 方法）、修复 validate.ts 正则支持空格、改进 plugin.gd Dock 面板添加状态和历史树。验证：6/7 单元测试通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c466da0` | (see git log) |
+| `a21a343` | (see git log) |
+| `7501676` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
