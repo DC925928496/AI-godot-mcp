@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend layer overview and pre-development checklist"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "TypeScript quality standards, testing requirements, code review checklist"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "MCP error response patterns and structured failure handling"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Node MCP server module layout and file organization"}
+{"file": "docs/phases/product-overview.md", "reason": "Overall architecture, security model, and Phase dependencies"}
+{"file": "docs/phases/phase-2-scene-mutations.md", "reason": "Reference for UndoRedo integration and transaction patterns"}
+{"file": "src/server/createServer.ts", "reason": "Existing tool registration patterns and schema validation examples"}
+{"file": "addons/ai_godot_mcp/websocket_server.gd", "reason": "Existing Godot handler patterns and error handling conventions"}

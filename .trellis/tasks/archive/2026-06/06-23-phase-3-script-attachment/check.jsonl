@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Build/test requirements and code review checklist verification"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify structured error responses for all failure cases"}
+{"file": "docs/phases/phase-3-script-attachment.md", "reason": "Acceptance criteria and verification requirements"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check for code duplication and reuse opportunities"}
