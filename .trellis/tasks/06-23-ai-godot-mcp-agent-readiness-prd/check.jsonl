@@ -1,5 +1,0 @@
-{"file":".trellis/spec/backend/index.md","reason":"Reviewers/checkers need the backend verification checklist because the likely follow-up work is MCP/server heavy."}
-{"file":".trellis/spec/backend/error-handling.md","reason":"Validation must confirm that connection failures, runtime failures, and tool-level errors remain explicit and actionable."}
-{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Future checks need to verify that diagnostics improvements do not pollute MCP stdout and remain operationally useful."}
-{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Follow-up task verification should include test strategy quality, not only build success."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Checks should confirm that any fix closes the full agent workflow loop across backend, plugin, and runtime layers."}
