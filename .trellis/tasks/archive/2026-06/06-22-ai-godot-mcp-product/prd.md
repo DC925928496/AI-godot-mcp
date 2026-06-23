@@ -105,32 +105,24 @@ Phase 1 should turn the current scaffold into a verifiable local editor bridge w
 ### Future Product Phases
 
 #### Phase 2: Scene/Node Mutations
-- Safe write operations through Godot `EditorUndoRedoManager`.
-- Tools: `create_scene`, `add_node`, `set_node_property`, `load_resource`, `save_current_scene`, `delete_node`.
-- All write operations follow "read-before-write" principle: must call `get_scene_tree` first.
-- Transaction support: `begin_ai_action(name)` / `end_ai_action()` for atomic multi-step operations.
-- Single tool call auto-forms single-step transaction if no explicit transaction opened.
-- Failed transaction must rollback entirely with failure step and reason.
+安全的场景节点写操作，基于 Godot 原生 UndoRedo 的原子事务。包含 6 个写操作工具和事务 API。
+
+**详见**：`docs/phases/phase-2-scene-mutations.md`
 
 #### Phase 3: Script/Resource Attachment
-- Tool: `attach_script` to bind existing script resources to target nodes.
-- MVP supports GDScript attachment only.
-- Tool: `get_resource_uid` for resource reference validation.
-- Separate validation for class names, resource paths, and node paths.
-- Script file creation/modification remains in general coding workflow; MCP only validates, attaches, runs, and observes editor results.
+将现有 GDScript 资源绑定到节点。分离验证层次（类名/资源路径/节点路径）。
+
+**详见**：`docs/phases/phase-3-script-attachment.md`
 
 #### Phase 4: Scene Execution & Debugging
-- Tools: `play_current_scene`, `stop_running_scene`.
-- Enhanced `get_editor_logs` for runtime output inspection.
-- Multi-step workflow rollback based on action history.
-- Optional dock panel showing recent AI operations.
+运行场景并捕获日志，完成游戏开发主工作流闭环。可选 AI 操作历史面板。
+
+**详见**：`docs/phases/phase-4-scene-execution.md`
 
 #### Phase 5: Packaging & Distribution
-- npm CLI with independent package name (not `@coding-solo/godot-mcp`).
-- CLI commands: `install`, `uninstall`, `version`.
-- `install` validates Godot 4.6.x, deploys plugin to `addons/godot-mcp/`, helps enable plugin.
-- Backup distribution: GitHub Releases manual download.
-- AssetLib distribution out of MVP scope.
+npm CLI 实现插件自动安装，独立包名发布。验证 Godot 4.6.x 环境。
+
+**详见**：`docs/phases/phase-5-packaging.md`
 
 ### New Repository Strategy
 
@@ -277,14 +269,11 @@ Phase 1 should turn the current scaffold into a verifiable local editor bridge w
 - Future: Add heartbeat/reconnection logic, version validation (deferred to Phase 2)
 
 ### Future Phase Criteria (not Phase 1)
-- [ ] (Phase 2) Multi-step operations wrapped in `begin_ai_action` / `end_ai_action` form atomic UndoRedo transaction.
-- [ ] (Phase 2) Failed transaction step triggers entire rollback with clear failure reason.
-- [ ] (Phase 2) `delete_node` validates node existence before deletion.
-- [ ] (Phase 3) `attach_script` binds GDScript file to target node.
-- [ ] (Phase 4) `play_current_scene` runs scene and `get_editor_logs` captures runtime output.
-- [ ] (Phase 4) Complete game developer main workflow: inspect scene → modify nodes → attach scripts → run scene → inspect logs.
-- [ ] (Phase 5) CLI `install` validates Godot 4.6.x and deploys plugin to target project.
-- [ ] (Phase 5) README contains breaking change notice, migration guide, and relationship to legacy project.
+详见各 Phase 文档的验收标准章节：
+- Phase 2：`docs/phases/phase-2-scene-mutations.md`
+- Phase 3：`docs/phases/phase-3-script-attachment.md`
+- Phase 4：`docs/phases/phase-4-scene-execution.md`
+- Phase 5：`docs/phases/phase-5-packaging.md`
 
 ## Definition of Done
 
