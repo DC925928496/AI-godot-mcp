@@ -271,3 +271,36 @@ Implemented Phase 1 of AI-godot-mcp: WebSocket communication between Node MCP se
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: 修复 README Node.js 版本不一致
+
+**Date**: 2026-06-23
+**Task**: 修复 README Node.js 版本不一致
+**Branch**: `main`
+
+### Summary
+
+统一 README.md、README_zh.md 和 phase-5-packaging.md 中的 Node.js 版本要求为 >=20.0.0，与 package.json 保持一致
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `868d709` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
