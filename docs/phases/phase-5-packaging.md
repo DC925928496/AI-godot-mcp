@@ -209,7 +209,7 @@ async function install(targetProject) {
   },
   "keywords": ["godot", "mcp", "ai", "game-development"],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "files": [
     "dist/",

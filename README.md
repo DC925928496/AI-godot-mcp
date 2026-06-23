@@ -47,7 +47,7 @@ Production-grade Godot MCP service for AI-driven game development.
 ## Requirements
 
 - **Godot**: 4.6.x only
-- **Node.js**: ≥18.0.0
+- **Node.js**: ≥20.0.0
 
 ## Quick Start
 
