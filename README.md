@@ -1,31 +1,69 @@
 # AI-godot-mcp
 
-AI-godot-mcp is a standalone Godot MCP service scaffold focused on real game development workflows.
+Production-grade Godot MCP service for AI-driven game development.
 
-## Purpose
+⚠️ **重大变更**  
+AI-godot-mcp 仅支持 Godot 4.6.x，与 legacy godot-mcp 0.1.1 不兼容。  
+迁移指南：[docs/MIGRATION.md](docs/MIGRATION.md)
 
-This project was extracted from an in-repository incubation package so it can evolve independently from the legacy `godot-mcp` root implementation.
+## 安装
 
-## Current Scope
+```bash
+npx ai-godot-mcp install <godot-project-path>
+```
 
-The scaffold currently provides:
+## 快速开始
 
-- independent package metadata
-- independent TypeScript build boundary
-- independent docs entrypoints
-- real stdio MCP server entrypoint skeleton
-- placeholder Godot plugin entrypoint
-- placeholder test entrypoint
+1. **安装插件**
+   ```bash
+   npx ai-godot-mcp install /path/to/your/godot/project
+   ```
 
-Business logic and production tool handlers will be added incrementally in later steps.
+2. **启用插件**（在 Godot 编辑器中）
+   - 打开项目
+   - 项目 → 项目设置 → 插件
+   - 启用 "AI Godot MCP"
 
-## Standalone Bootstrapping
+3. **配置 MCP**
+   插件将在端口 6550 启动 WebSocket 服务器，可在 Claude Desktop 等 MCP 客户端中连接。
 
-After cloning this repository:
+## 命令
 
-1. Run `npm install`.
-2. Run `npm run build`.
-3. Run `npm test`.
-4. Run `trellis init` in the repository root to initialize a fresh standalone Trellis workspace.
+### install
+```bash
+npx ai-godot-mcp install <project-path>
+```
+部署插件到 Godot 项目，验证版本兼容性。
 
-Detailed extraction notes live in [`docs/EXTRACTION.md`](./docs/EXTRACTION.md).
+### uninstall
+```bash
+npx ai-godot-mcp uninstall <project-path>
+```
+从项目中移除插件。
+
+### version
+```bash
+npx ai-godot-mcp version
+```
+显示版本信息和支持的 Godot 版本。
+
+## 功能特性
+
+- **节点操作**：获取/设置属性、调用方法、列出节点树
+- **场景变更**：支持事务回滚的场景修改
+- **脚本附加**：动态附加 GDScript 到节点
+- **场景执行**：在编辑器中执行场景并收集日志
+
+## 版本要求
+
+- **Godot**: 4.6.x only
+- **Node.js**: ≥18.0.0
+
+## 与 Legacy 项目的关系
+
+AI-godot-mcp 是新产品线，架构完全重写。  
+Legacy godot-mcp 不再维护。
+
+## 许可证
+
+MIT
