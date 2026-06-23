@@ -2,17 +2,16 @@
 
 [![MCP Server](https://badge.mcpx.dev?type=server)](https://modelcontextprotocol.io/introduction)
 [![Made with Godot](https://img.shields.io/badge/Made%20with-Godot-478CBF?style=flat&logo=godot%20engine&logoColor=white)](https://godotengine.org)
+[![GDScript](https://img.shields.io/badge/GDScript-478CBF?style=flat&logo=godot%20engine&logoColor=white)](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/index.html)
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![WebSocket](https://img.shields.io/badge/WebSocket-000000?style=flat&logo=socket.io&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 
 **[中文文档](docs/README_zh.md)**
 
 Production-grade Godot MCP service for AI-driven game development.
 
-⚠️ **Breaking Changes**  
-AI-godot-mcp supports Godot 4.6.x only and is incompatible with legacy godot-mcp 0.1.1.  
-Migration guide: [docs/MIGRATION.md](docs/MIGRATION.md)
+> Inspired by [dpeachpeach/godot-mcp](https://github.com/dpeachpeach/godot-mcp)
 
 ## Features
 
