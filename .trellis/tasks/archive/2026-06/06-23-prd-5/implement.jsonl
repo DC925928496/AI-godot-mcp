@@ -1,0 +1,8 @@
+{"path": ".trellis/spec/backend/quality-guidelines.md", "reason": "文档编写的质量标准"}
+{"path": "E:/code/godot-mcp/README.md", "reason": "参考 legacy 项目的 README 结构和徽章格式"}
+{"path": "src/server/createServer.ts", "reason": "确认所有 MCP 工具的完整列表"}
+{"path": ".trellis/tasks/archive/2026-06/06-22-ai-godot-mcp-product/prd.md", "reason": "主 PRD，需要更新验收标准"}
+{"path": "docs/phases/phase-2-scene-mutations.md", "reason": "Phase 2 详细功能列表"}
+{"path": "docs/phases/phase-3-script-attachment.md", "reason": "Phase 3 详细功能列表"}
+{"path": "docs/phases/phase-4-scene-execution.md", "reason": "Phase 4 详细功能列表"}
+{"path": "docs/phases/phase-5-packaging.md", "reason": "Phase 5 CLI 功能列表"}
