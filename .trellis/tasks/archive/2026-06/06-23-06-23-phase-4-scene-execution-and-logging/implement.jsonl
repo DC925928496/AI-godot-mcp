@@ -1,0 +1,6 @@
+{"path": "src/server/createServer.ts", "reason": "现有 MCP 工具定义，需要添加新工具和升级 get_editor_logs"}
+{"path": "addons/ai_godot_mcp/websocket_server.gd", "reason": "WebSocket RPC 处理器，需要实现新的 handle 方法和日志捕获逻辑"}
+{"path": "addons/ai_godot_mcp/plugin.gd", "reason": "插件入口，可能需要初始化日志监听"}
+{"path": "docs/phases/phase-4-scene-execution.md", "reason": "Phase 4 原始需求文档"}
+{"path": "test-phase2.md", "reason": "参考已有测试流程"}
+{"path": "test-phase3.md", "reason": "参考已有测试流程"}
