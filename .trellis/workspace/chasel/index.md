@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-06-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~172 | Active |
+| `journal-1.md` | ~205 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-06-23 | Phase 5: CLI打包与发布 | `62cb364` | `main` |
 | 5 | 2026-06-23 | Phase 4: 场景执行与日志捕获实现 | `a1ae699` | `main` |
 | 4 | 2026-06-23 | Phase 3: Script Attachment | `e065af4` | `main` |
 | 3 | 2026-06-23 | Phase 2: Scene Mutations with Transaction Rollback | `9ce9693` | `main` |
