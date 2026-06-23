@@ -1,6 +1,6 @@
 {
   "name": "ai-godot-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Production-grade Godot MCP service for AI-driven game development",
   "type": "module",
   "license": "MIT",
