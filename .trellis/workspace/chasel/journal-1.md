@@ -137,3 +137,36 @@ Implemented Phase 1 of AI-godot-mcp: WebSocket communication between Node MCP se
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Phase 4: 场景执行与日志捕获实现
+
+**Date**: 2026-06-23
+**Task**: Phase 4: 场景执行与日志捕获实现
+**Branch**: `main`
+
+### Summary
+
+实现场景运行控制(play/stop)和增强日志系统(时间戳过滤+级别过滤)，完成游戏开发工作流闭环
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a1ae699` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
