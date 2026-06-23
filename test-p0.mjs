@@ -1,43 +1,62 @@
 // P0 修复快速验证
+import test from 'node:test';
 import { EditorConnection } from './build/server/editorConnection.js';
 
-const conn = new EditorConnection();
+test('manual Godot integration smoke test', async (t) => {
+  const conn = new EditorConnection();
 
-try {
-  console.log('📡 连接 Godot...');
-  await conn.connect();
-  console.log('✅ 连接成功\n');
-
-  // 测试 P0-1: play_current_scene
-  console.log('测试 P0-1: play_current_scene');
-  const play = await conn.send('play_current_scene');
-  console.log('✅', play, '\n');
-
-  await new Promise(r => setTimeout(r, 1000));
-
-  // 测试 P0-3: get_editor_logs
-  console.log('测试 P0-3: get_editor_logs');
-  const logs = await conn.send('get_editor_logs', { filter_level: 'all' });
-  console.log('✅', logs, '\n');
-
-  // 测试 P0-1: stop_running_scene
-  console.log('测试 P0-1: stop_running_scene');
-  const stop = await conn.send('stop_running_scene');
-  console.log('✅', stop, '\n');
-
-  // 测试 P0-2: 错误传递
-  console.log('测试 P0-2: 错误传递');
   try {
-    await conn.send('invalid_method');
-    console.log('❌ 应该抛错但没有');
+    console.log('📡 连接 Godot...');
+    await conn.connect();
+    console.log('✅ 连接成功\n');
   } catch (err) {
-    console.log('✅ 正确捕获:', err.message, '\n');
+    t.skip(`Godot editor/plugin not available: ${err.message}`);
+    return;
   }
 
-  console.log('🎉 P0 修复验证通过！');
-  process.exit(0);
-} catch (err) {
-  console.error('❌ 失败:', err.message);
-  console.error('\n💡 请确保 Godot 编辑器已启动且插件已启用');
-  process.exit(1);
-}
+  try {
+    console.log('测试 P0-1: play_current_scene');
+    let play;
+    try {
+      play = await conn.send('play_current_scene');
+    } catch (err) {
+      if (String(err.message).includes('NO_SCENE')) {
+        t.skip('No scene is currently open in the Godot editor.');
+        return;
+      }
+      throw err;
+    }
+    console.log('✅', play, '\n');
+
+    if (!play || typeof play !== 'object' || play.status !== 'running') {
+      t.skip('No playable scene is currently open in the editor.');
+      return;
+    }
+
+    await new Promise(r => setTimeout(r, 1000));
+
+    console.log('测试 P0-3: get_editor_logs');
+    const logs = await conn.send('get_editor_logs', { filter_level: 'all' });
+    console.log('✅', logs, '\n');
+
+    console.log('测试 P0-1: stop_running_scene');
+    const stop = await conn.send('stop_running_scene');
+    console.log('✅', stop, '\n');
+
+    console.log('测试 P0-2: 错误传递');
+    let invalidMethodFailed = false;
+    try {
+      await conn.send('invalid_method');
+    } catch (err) {
+      invalidMethodFailed = true;
+      console.log('✅ 正确捕获:', err.message, '\n');
+    }
+    if (!invalidMethodFailed) {
+      throw new Error('Expected invalid_method to fail');
+    }
+
+    console.log('🎉 P0 修复验证通过！');
+  } finally {
+    conn['ws']?.close();
+  }
+});

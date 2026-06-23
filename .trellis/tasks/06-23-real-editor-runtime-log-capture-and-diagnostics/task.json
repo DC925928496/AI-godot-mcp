@@ -1,0 +1,31 @@
+{
+  "id": "real-editor-runtime-log-capture-and-diagnostics",
+  "name": "real-editor-runtime-log-capture-and-diagnostics",
+  "title": "real-editor-runtime-log-capture-and-diagnostics",
+  "description": "Implement the first real runtime diagnostics loop by tailing Godot's built-in file logs and exposing them through get_editor_logs.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "chasel",
+  "assignee": "chasel",
+  "createdAt": "2026-06-23",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-23-ai-godot-mcp-agent-readiness-prd",
+  "relatedFiles": [
+    "addons/ai_godot_mcp/websocket_server.gd",
+    "src/server/createServer.ts",
+    "README.md",
+    ".trellis/tasks/06-23-real-editor-runtime-log-capture-and-diagnostics/prd.md"
+  ],
+  "notes": "Derived from the readiness assessment task. Scope intentionally focuses on real runtime feedback using official Godot file logging rather than speculative Output panel interception.",
+  "meta": {}
+}

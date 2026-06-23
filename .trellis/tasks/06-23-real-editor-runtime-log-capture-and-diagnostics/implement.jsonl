@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend entrypoints and tool contracts may need small diagnostic adjustments, so implementation should start from the backend checklist."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"The task must surface unavailable file logging and runtime diagnostics as actionable MCP-facing failures or warnings."}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Runtime diagnostics improvements must not pollute MCP stdout and should keep operational logs on stderr only."}
+{"file":".trellis/spec/frontend/index.md","reason":"Most of the implementation lands in the Godot plugin layer, so plugin-side checklist and conventions apply."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Runtime log cursors, availability state, and scene-run tracking introduce plugin-side state that should remain disciplined."}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"Plugin-side path resolution and request handling must stay defensive when touching project settings and file I/O."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"This task spans plugin log ingestion, MCP tool semantics, and developer debugging workflow, so cross-layer reasoning is required."}

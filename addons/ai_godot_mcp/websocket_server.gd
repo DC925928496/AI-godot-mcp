@@ -11,7 +11,12 @@ var auth_token := ""
 var _log_buffer: Array[Dictionary] = []
 var _max_log_size := 1000
 var _is_scene_running := false
-var _scene_output_handler: Object = null
+var _runtime_log_enabled := false
+var _runtime_log_path := ""
+var _runtime_log_offset := 0
+var _runtime_log_partial_line := ""
+var _runtime_log_last_level := "info"
+var _runtime_log_last_error := ""
 
 func _ready() -> void:
 	auth_token = _generate_token()
@@ -426,36 +431,161 @@ func handle_get_resource_uid(req: Dictionary) -> Dictionary:
 
 # Phase 4: Scene execution & logging
 func _setup_log_capture():
-	EditorInterface.get_script_editor().editor_script_changed.connect(_on_script_changed)
-
-func _on_script_changed(_script):
-	pass  # Hook for future log capture
+	_refresh_runtime_log_config()
 
 func _add_log(level: String, message: String, source: String):
 	_log_buffer.append({"timestamp": int(Time.get_unix_time_from_system()), "level": level, "message": message, "source": source})
 	if _log_buffer.size() > _max_log_size:
 		_log_buffer.pop_front()
 
+func _get_project_setting(name: String, fallback):
+	if ProjectSettings.has_method("get_setting_with_override") and ProjectSettings.has_setting(name):
+		return ProjectSettings.get_setting_with_override(name)
+	return ProjectSettings.get_setting(name, fallback)
+
+func _refresh_runtime_log_config() -> void:
+	_runtime_log_enabled = bool(_get_project_setting("debug/file_logging/enable_file_logging", true))
+	var configured_path = str(_get_project_setting("debug/file_logging/log_path", "user://logs/godot.log"))
+	if configured_path == "":
+		configured_path = "user://logs/godot.log"
+	_runtime_log_path = ProjectSettings.globalize_path(configured_path)
+
+func _reset_runtime_log_cursor() -> void:
+	_refresh_runtime_log_config()
+	_runtime_log_last_error = ""
+	_runtime_log_partial_line = ""
+	_runtime_log_last_level = "info"
+	_runtime_log_offset = 0
+	if not _runtime_log_enabled or _runtime_log_path == "":
+		return
+	if not FileAccess.file_exists(_runtime_log_path):
+		return
+	var log_file = FileAccess.open(_runtime_log_path, FileAccess.READ)
+	if not log_file:
+		_runtime_log_last_error = "Failed to open runtime log file: " + _runtime_log_path
+		return
+	_runtime_log_offset = log_file.get_length()
+	log_file.close()
+
+func _get_runtime_log_capture_status() -> Dictionary:
+	_refresh_runtime_log_config()
+	var status = {
+		"mode": "file",
+		"enabled": _runtime_log_enabled,
+		"available": false,
+		"log_path": _runtime_log_path,
+		"message": "",
+		"suggestions": []
+	}
+
+	if not _runtime_log_enabled:
+		status["message"] = "Project setting debug/file_logging/enable_file_logging is disabled."
+		status["suggestions"] = ["Enable Project Settings > Debug > File Logging > Enable File Logging."]
+		return status
+
+	if _runtime_log_path == "":
+		status["message"] = "Could not resolve the runtime log path."
+		status["suggestions"] = ["Set Project Settings > Debug > File Logging > Log Path or use the default user://logs/godot.log path."]
+		return status
+
+	if _runtime_log_last_error != "":
+		status["message"] = _runtime_log_last_error
+		status["suggestions"] = ["Confirm the log path is writable and readable by the editor.", "Run the current scene once to let Godot create the log file if needed."]
+		return status
+
+	if FileAccess.file_exists(_runtime_log_path):
+		status["available"] = true
+		status["message"] = "Runtime log capture is active."
+		return status
+
+	status["message"] = "Runtime log file has not been created yet."
+	status["suggestions"] = ["Run the current scene once to let Godot create the file.", "Confirm Project Settings > Debug > File Logging is enabled."]
+	return status
+
+func _classify_runtime_log_level(message: String, previous_level: String) -> String:
+	var normalized = message.strip_edges()
+	var lower = normalized.to_lower()
+	if normalized.begins_with("at:") or normalized.begins_with("from:") or lower.begins_with("stack trace") or lower.begins_with("script backtrace") or lower.begins_with("user script backtrace") or normalized.begins_with("at "):
+		return previous_level if previous_level == "error" or previous_level == "warning" else "info"
+	if lower.contains("error") or lower.contains("failed") or lower.contains("invalid ") or lower.contains("parse error") or lower.contains("script backtrace") or lower.contains("stack trace") or lower.contains("attempt to"):
+		return "error"
+	if lower.contains("warning") or lower.contains("deprecated"):
+		return "warning"
+	return "info"
+
+func _poll_runtime_log() -> void:
+	_refresh_runtime_log_config()
+	_runtime_log_last_error = ""
+	if not _runtime_log_enabled or _runtime_log_path == "":
+		return
+	if not FileAccess.file_exists(_runtime_log_path):
+		return
+	var log_file = FileAccess.open(_runtime_log_path, FileAccess.READ)
+	if not log_file:
+		_runtime_log_last_error = "Failed to open runtime log file: " + _runtime_log_path
+		return
+
+	var file_length = log_file.get_length()
+	if file_length < _runtime_log_offset:
+		_runtime_log_offset = 0
+		_runtime_log_partial_line = ""
+		_runtime_log_last_level = "info"
+
+	if file_length == _runtime_log_offset:
+		log_file.close()
+		return
+
+	log_file.seek(_runtime_log_offset)
+	var chunk_size = file_length - _runtime_log_offset
+	var runtime_chunk = log_file.get_buffer(chunk_size).get_string_from_utf8()
+	_runtime_log_offset = file_length
+	log_file.close()
+
+	if _runtime_log_partial_line != "":
+		runtime_chunk = _runtime_log_partial_line + runtime_chunk
+		_runtime_log_partial_line = ""
+
+	if runtime_chunk == "":
+		return
+
+	var normalized_chunk = runtime_chunk.replace("\r\n", "\n").replace("\r", "\n")
+	var ends_with_newline = normalized_chunk.ends_with("\n")
+	var lines = normalized_chunk.split("\n")
+	if not ends_with_newline and lines.size() > 0:
+		_runtime_log_partial_line = lines[lines.size() - 1]
+		lines.resize(lines.size() - 1)
+
+	for line in lines:
+		var message = String(line).strip_edges()
+		if message == "":
+			continue
+		var level = _classify_runtime_log_level(message, _runtime_log_last_level)
+		_runtime_log_last_level = level
+		_add_log(level, message, "runtime")
+
 func handle_play_scene(req: Dictionary) -> Dictionary:
 	var root = EditorInterface.get_edited_scene_root()
 	if not root:
 		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open"}}
+	_reset_runtime_log_cursor()
 	_is_scene_running = true
-	_add_log("info", "Scene started: " + root.scene_file_path, "runtime")
+	_add_log("info", "Scene started: " + root.scene_file_path, "editor")
 	EditorInterface.play_current_scene()
-	return {"id": req.id, "ok": true, "data": {"scene_path": root.scene_file_path, "status": "running"}}
+	return {"id": req.id, "ok": true, "data": {"scene_path": root.scene_file_path, "status": "running", "log_capture": _get_runtime_log_capture_status()}}
 
 func handle_stop_scene(req: Dictionary) -> Dictionary:
+	_poll_runtime_log()
 	EditorInterface.stop_playing_scene()
 	_is_scene_running = false
-	_add_log("info", "Scene stopped", "runtime")
-	return {"id": req.id, "ok": true, "data": {"stopped": true}}
+	_add_log("info", "Scene stopped", "editor")
+	return {"id": req.id, "ok": true, "data": {"stopped": true, "log_capture": _get_runtime_log_capture_status()}}
 
 func handle_get_logs(req: Dictionary) -> Dictionary:
+	_poll_runtime_log()
 	var params = req.get("params", {})
 	var since_ts = params.get("since_timestamp", 0)
 	var filter_level = params.get("filter_level", "all")
 	var filtered = _log_buffer.filter(func(log):
 		return log.timestamp > since_ts and (filter_level == "all" or log.level == filter_level)
 	)
-	return {"id": req.id, "ok": true, "data": {"logs": filtered}}
+	return {"id": req.id, "ok": true, "data": {"logs": filtered, "log_capture": _get_runtime_log_capture_status()}}

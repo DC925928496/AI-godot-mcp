@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/index.md","reason":"Reviewers need the backend verification checklist for any Node-side response or test adjustments."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Checks should confirm degraded logging states are surfaced honestly and actionably."}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Verification should confirm diagnostics improvements do not break stdout/stderr separation."}
+{"file":".trellis/spec/frontend/index.md","reason":"Most behavior changes are in the plugin layer, so plugin quality checks must be applied during review."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Runtime log tailing adds non-trivial plugin logic that should be reviewed for maintainability and safety."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Checks should verify runtime-log cursor state and scene-run state stay consistent across calls."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review should validate the full feedback loop from scene run to MCP-visible diagnostics, not just isolated file parsing."}
