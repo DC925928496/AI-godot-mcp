@@ -5,6 +5,7 @@ var clients: Array[WebSocketPeer] = []
 var port := 6550
 var undo_redo: EditorUndoRedoManager
 var current_txn := {}  # {id: String, name: String, step_count: int}
+var auth_token := ""
 
 # Log capture system
 var _log_buffer: Array[Dictionary] = []
@@ -13,9 +14,23 @@ var _is_scene_running := false
 var _scene_output_handler: Object = null
 
 func _ready() -> void:
+	auth_token = _generate_token()
+	_save_token_to_file()
 	server.create_server(port)
 	undo_redo = EditorInterface.get_editor_undo_redo()
 	_setup_log_capture()
+
+func _generate_token() -> String:
+	return str(Time.get_ticks_msec()) + "_" + str(randi())
+
+func _save_token_to_file():
+	var dir_path = OS.get_user_data_dir()
+	if not DirAccess.dir_exists_absolute(dir_path):
+		DirAccess.make_dir_recursive_absolute(dir_path)
+	var file = FileAccess.open(dir_path + "/ai_mcp_token", FileAccess.WRITE)
+	if file:
+		file.store_string(auth_token)
+		file.close()
 
 func _process(_delta: float) -> void:
 	server.poll()
@@ -37,6 +52,8 @@ func _process(_delta: float) -> void:
 			clients.erase(client)
 
 func handle_request(req: Dictionary) -> Dictionary:
+	if req.get("auth_token", "") != auth_token:
+		return {"id": req.get("id", ""), "ok": false, "error": {"code": "UNAUTHORIZED", "message": "Invalid token"}}
 	match req.get("method"):
 		"get_project_context":
 			return {
@@ -57,11 +74,7 @@ func handle_request(req: Dictionary) -> Dictionary:
 				"data": serialize_node(edited, req.get("params", {}).get("depth", 5))
 			}
 		"get_editor_logs":
-			return {
-				"id": req.id,
-				"ok": true,
-				"data": {"logs": []}
-			}
+			return handle_get_logs(req)
 		"begin_ai_action":
 			return handle_begin_action(req)
 		"end_ai_action":
@@ -85,17 +98,39 @@ func handle_request(req: Dictionary) -> Dictionary:
 			return handle_attach_script(req)
 		"get_resource_uid":
 			return handle_get_resource_uid(req)
+		"play_current_scene":
+			return handle_play_scene(req)
+		"stop_running_scene":
+			return handle_stop_scene(req)
 		_:
 			return {"id": req.id, "ok": false, "error": {"code": "UNKNOWN_METHOD", "message": "Unknown method"}}
 
 func serialize_node(node: Node, depth: int) -> Dictionary:
 	if not node or depth <= 0:
 		return {}
-	return {
+
+	var result = {
 		"name": node.name,
 		"type": node.get_class(),
 		"children": node.get_children().map(func(c): return serialize_node(c, depth - 1))
 	}
+
+	var props = {}
+	for prop in node.get_property_list():
+		if prop.usage & PROPERTY_USAGE_EDITOR:
+			props[prop.name] = str(node.get(prop.name))
+	if props.size() > 0:
+		result["properties"] = props
+
+	var script = node.get_script()
+	if script:
+		result["script"] = script.resource_path
+
+	var groups = node.get_groups()
+	if groups.size() > 0:
+		result["groups"] = groups
+
+	return result
 
 # Transaction management
 func handle_begin_action(req: Dictionary) -> Dictionary:
@@ -117,6 +152,13 @@ func handle_end_action(req: Dictionary) -> Dictionary:
 
 func rollback_txn() -> void:
 	current_txn.clear()
+
+func _validate_path(path: String) -> bool:
+	return path.begins_with("res://") and not ".." in path
+
+func _validate_class_name(class_name: String) -> bool:
+	var blacklist = ["EditorInterface", "ScriptEditor", "OS", "EditorPlugin", "EditorScript"]
+	return class_name not in blacklist
 
 # Write operations
 func handle_add_node(req: Dictionary) -> Dictionary:
@@ -146,7 +188,7 @@ func handle_add_node(req: Dictionary) -> Dictionary:
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Parent not found: " + parent_path, "failed_step": step}}
 
-	if not ClassDB.class_exists(node_type):
+	if not ClassDB.class_exists(node_type) or not _validate_class_name(node_type):
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "INVALID_TYPE", "message": "Invalid node type: " + node_type, "failed_step": step}}
 
@@ -244,16 +286,29 @@ func handle_create_scene(req: Dictionary) -> Dictionary:
 	var scene_name = params.get("scene_name", "")
 	var root_node_type = params.get("root_node_type", "Node2D")
 
-	if not ClassDB.class_exists(root_node_type):
+	if not ClassDB.class_exists(root_node_type) or not _validate_class_name(root_node_type):
 		return {"id": req.id, "ok": false, "error": {"code": "INVALID_TYPE", "message": "Invalid node type: " + root_node_type}}
 
+	var scene_path = "res://" + scene_name
+	if not scene_path.ends_with(".tscn"):
+		scene_path += ".tscn"
+
+	if not _validate_path(scene_path):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PATH", "message": "Invalid path: " + scene_path}}
+
+	if ResourceLoader.exists(scene_path):
+		return {"id": req.id, "ok": false, "error": {"code": "FILE_EXISTS", "message": "Scene already exists: " + scene_path}}
+
+	var dir_path = scene_path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(dir_path):
+		DirAccess.make_dir_recursive_absolute(dir_path)
+
 	var new_scene = ClassDB.instantiate(root_node_type)
-	new_scene.name = scene_name if scene_name != "" else root_node_type
+	new_scene.name = scene_name.get_file().get_basename()
 
 	var packed_scene = PackedScene.new()
 	packed_scene.pack(new_scene)
 
-	var scene_path = "res://" + scene_name + ".tscn"
 	var err = ResourceSaver.save(packed_scene, scene_path)
 	if err != OK:
 		return {"id": req.id, "ok": false, "error": {"code": "SAVE_FAILED", "message": "Failed to create scene: " + str(err)}}
@@ -264,6 +319,9 @@ func handle_load_resource(req: Dictionary) -> Dictionary:
 	var params = req.get("params", {})
 	var resource_path = params.get("resource_path", "")
 	var resource_type = params.get("resource_type", "")
+
+	if not _validate_path(resource_path):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PATH", "message": "Invalid path: " + resource_path}}
 
 	if not ResourceLoader.exists(resource_path):
 		return {"id": req.id, "ok": false, "error": {"code": "RESOURCE_NOT_FOUND", "message": "Resource not found: " + resource_path}}
@@ -309,6 +367,10 @@ func handle_attach_script(req: Dictionary) -> Dictionary:
 	var node_path = params.get("node_path", "")
 	var script_path = params.get("script_path", "")
 
+	if not _validate_path(script_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PATH", "message": "Invalid script path: " + script_path, "failed_step": step}}
+
 	var root = EditorInterface.get_edited_scene_root()
 	if not root:
 		rollback_txn()
@@ -345,6 +407,9 @@ func handle_attach_script(req: Dictionary) -> Dictionary:
 func handle_get_resource_uid(req: Dictionary) -> Dictionary:
 	var params = req.get("params", {})
 	var resource_path = params.get("resource_path", "")
+
+	if not _validate_path(resource_path):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PATH", "message": "Invalid path: " + resource_path}}
 
 	if not ResourceLoader.exists(resource_path):
 		return {"id": req.id, "ok": false, "error": {"code": "RESOURCE_NOT_FOUND", "message": "Resource not found: " + resource_path}}
