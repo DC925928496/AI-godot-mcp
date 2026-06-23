@@ -8,6 +8,8 @@ const SetPropertySchema = z.object({ node_path: z.string(), property: z.string()
 const DeleteNodeSchema = z.object({ node_path: z.string() });
 const CreateSceneSchema = z.object({ scene_name: z.string(), root_node_type: z.string().optional() });
 const LoadResourceSchema = z.object({ resource_path: z.string(), resource_type: z.string().optional() });
+const AttachScriptSchema = z.object({ node_path: z.string(), script_path: z.string().endsWith(".gd") });
+const GetResourceUidSchema = z.object({ resource_path: z.string() });
 
 /**
  * Creates and configures the MCP server with Godot editor tools.
@@ -99,6 +101,18 @@ export function createServer(): McpServer {
 
   server.tool("save_current_scene", "Save the current scene", async () => {
     const data = await conn.send("save_current_scene", {}, currentTxnId);
+    return { content: [{ type: "text", text: JSON.stringify(data) }] };
+  });
+
+  server.tool("attach_script", "Attach a GDScript to a node", async (args: unknown) => {
+    const params = AttachScriptSchema.parse(args);
+    const data = await conn.send("attach_script", params, currentTxnId);
+    return { content: [{ type: "text", text: JSON.stringify(data) }] };
+  });
+
+  server.tool("get_resource_uid", "Get resource UID and type", async (args: unknown) => {
+    const params = GetResourceUidSchema.parse(args);
+    const data = await conn.send("get_resource_uid", params);
     return { content: [{ type: "text", text: JSON.stringify(data) }] };
   });
 

@@ -74,6 +74,10 @@ func handle_request(req: Dictionary) -> Dictionary:
 			return handle_load_resource(req)
 		"save_current_scene":
 			return handle_save_scene(req)
+		"attach_script":
+			return handle_attach_script(req)
+		"get_resource_uid":
+			return handle_get_resource_uid(req)
 		_:
 			return {"id": req.id, "ok": false, "error": {"code": "UNKNOWN_METHOD", "message": "Unknown method"}}
 
@@ -282,3 +286,67 @@ func handle_save_scene(req: Dictionary) -> Dictionary:
 		return {"id": req.id, "ok": false, "error": {"code": "SAVE_FAILED", "message": "Save failed: " + str(err)}}
 
 	return {"id": req.id, "ok": true, "data": {"saved_path": scene_path}}
+
+func handle_attach_script(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "attach_script"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var node_path = params.get("node_path", "")
+	var script_path = params.get("script_path", "")
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var node = root.get_node_or_null(node_path)
+	if not node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
+
+	if not ResourceLoader.exists(script_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "SCRIPT_NOT_FOUND", "message": "Script file does not exist: " + script_path, "suggestions": ["Verify script path", "Check file exists in project"]}}
+
+	var script = ResourceLoader.load(script_path)
+	if not script:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SCRIPT", "message": "Failed to load script (syntax error or invalid format)", "suggestions": ["Fix script syntax errors before attaching"]}}
+
+	if not script is GDScript:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SCRIPT", "message": "Resource is not a GDScript: " + script.get_class()}}
+
+	var old_script = node.get_script()
+	undo_redo.add_do_method(node, "set_script", script)
+	undo_redo.add_undo_method(node, "set_script", old_script)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	var resource_uid = ResourceLoader.get_resource_uid(script_path)
+	return {"id": req.id, "ok": true, "data": {"attached_script": script_path, "resource_uid": str(resource_uid)}}
+
+func handle_get_resource_uid(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var resource_path = params.get("resource_path", "")
+
+	if not ResourceLoader.exists(resource_path):
+		return {"id": req.id, "ok": false, "error": {"code": "RESOURCE_NOT_FOUND", "message": "Resource not found: " + resource_path}}
+
+	var resource = ResourceLoader.load(resource_path)
+	if not resource:
+		return {"id": req.id, "ok": false, "error": {"code": "LOAD_FAILED", "message": "Failed to load resource: " + resource_path}}
+
+	var resource_uid = ResourceLoader.get_resource_uid(resource_path)
+	var resource_type = resource.get_class()
+
+	return {"id": req.id, "ok": true, "data": {"uid": str(resource_uid), "type": resource_type}}
