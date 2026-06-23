@@ -6,40 +6,42 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 
+**[中文文档](docs/README_zh.md)**
+
 Production-grade Godot MCP service for AI-driven game development.
 
-⚠️ **重大变更**  
-AI-godot-mcp 仅支持 Godot 4.6.x，与 legacy godot-mcp 0.1.1 不兼容。  
-迁移指南：[docs/MIGRATION.md](docs/MIGRATION.md)
+⚠️ **Breaking Changes**  
+AI-godot-mcp supports Godot 4.6.x only and is incompatible with legacy godot-mcp 0.1.1.  
+Migration guide: [docs/MIGRATION.md](docs/MIGRATION.md)
 
 ## Features
 
 ### Phase 1: Read-Only Tools
-- **`get_project_context`** - 获取 Godot 版本、项目名称、插件状态
-- **`get_scene_tree`** - 获取当前场景节点树（支持深度限制和类型过滤）
-- **`get_editor_logs`** - 获取编辑器输出面板日志（支持时间戳和级别过滤）
+- **`get_project_context`** - Retrieve Godot version, project name, and plugin status
+- **`get_scene_tree`** - Get current scene node tree (supports depth limit and type filtering)
+- **`get_editor_logs`** - Fetch editor output panel logs (supports timestamp and level filtering)
 
 ### Phase 2: Scene Editing & Transactions
-- **`create_scene`** - 创建新场景文件
-- **`add_node`** - 向场景树添加节点
-- **`set_node_property`** - 修改节点属性
-- **`delete_node`** - 删除节点（支持撤销）
-- **`load_resource`** - 加载资源引用
-- **`save_current_scene`** - 保存当前场景
-- **`begin_ai_action` / `end_ai_action`** - UndoRedo 原子事务支持
+- **`create_scene`** - Create new scene files
+- **`add_node`** - Add nodes to scene tree
+- **`set_node_property`** - Modify node properties
+- **`delete_node`** - Delete nodes (supports undo)
+- **`load_resource`** - Load resource references
+- **`save_current_scene`** - Save current scene
+- **`begin_ai_action` / `end_ai_action`** - UndoRedo atomic transaction support
 
 ### Phase 3: Script Attachment
-- **`attach_script`** - 附加 GDScript 到节点
-- **`get_resource_uid`** - 获取资源 UID 用于验证
+- **`attach_script`** - Attach GDScript to nodes
+- **`get_resource_uid`** - Get resource UID for validation
 
 ### Phase 4: Scene Execution
-- **`play_current_scene`** - 运行当前场景（F6）
-- **`stop_running_scene`** - 停止运行场景（F8）
+- **`play_current_scene`** - Run current scene (F6)
+- **`stop_running_scene`** - Stop running scene (F8)
 
 ### Phase 5: CLI Tools
-- **`install`** - 部署插件到 Godot 项目
-- **`uninstall`** - 从项目中移除插件
-- **`version`** - 显示版本信息
+- **`install`** - Deploy plugin to Godot projects
+- **`uninstall`** - Remove plugin from projects
+- **`version`** - Display version information
 
 ## Requirements
 
@@ -56,10 +58,10 @@ npx ai-godot-mcp install <godot-project-path>
 
 ### Enable Plugin
 
-在 Godot 编辑器中：
-1. 打开项目
-2. **项目 → 项目设置 → 插件**
-3. 启用 **"AI Godot MCP"**
+In Godot Editor:
+1. Open your project
+2. Navigate to **Project → Project Settings → Plugins**
+3. Enable **"AI Godot MCP"**
 
 ### Configure MCP Client
 
@@ -69,12 +71,12 @@ npx ai-godot-mcp install <godot-project-path>
 claude mcp add ai-godot-mcp -- npx ai-godot-mcp
 ```
 
-重启 Claude Code，工具即可使用。
+Restart Claude Code and the tools will be available.
 
 <details>
 <summary><strong>Other MCP Clients</strong></summary>
 
-对于任意 MCP 兼容客户端，使用以下配置：
+For any MCP-compatible client, use this configuration:
 
 ```json
 {
@@ -91,11 +93,11 @@ claude mcp add ai-godot-mcp -- npx ai-godot-mcp
 
 ## Architecture
 
-AI-godot-mcp 使用 **WebSocket 通信架构**：
+AI-godot-mcp uses a **WebSocket communication architecture**:
 
-- **Node MCP 服务器** (WebSocket 客户端) ↔ **Godot 编辑器插件** (WebSocket 服务器，端口 6550)
-- 所有写操作集成 Godot 原生 **UndoRedo** 系统，支持原子事务
-- 统一响应格式：`{ok: true, data}` 或 `{ok: false, error: {code, message, suggestions}}`
+- **Node MCP Server** (WebSocket client) ↔ **Godot Editor Plugin** (WebSocket server on port 6550)
+- All write operations integrate with Godot's native **UndoRedo** system, supporting atomic transactions
+- Unified response format: `{ok: true, data}` or `{ok: false, error: {code, message, suggestions}}`
 
 ## CLI Commands
 
@@ -105,7 +107,7 @@ AI-godot-mcp 使用 **WebSocket 通信架构**：
 npx ai-godot-mcp install <project-path>
 ```
 
-部署插件到 Godot 项目，验证版本兼容性（仅支持 Godot 4.6.x）。
+Deploy plugin to Godot project with version compatibility validation (Godot 4.6.x only).
 
 ### uninstall
 
@@ -113,7 +115,7 @@ npx ai-godot-mcp install <project-path>
 npx ai-godot-mcp uninstall <project-path>
 ```
 
-从项目中移除 `addons/ai_godot_mcp/` 目录。
+Remove `addons/ai_godot_mcp/` directory from project.
 
 ### version
 
@@ -121,12 +123,12 @@ npx ai-godot-mcp uninstall <project-path>
 npx ai-godot-mcp version
 ```
 
-显示版本信息和支持的 Godot 版本。
+Display version information and supported Godot versions.
 
 ## Building from Source
 
 <details>
-<summary>展开查看</summary>
+<summary>Expand to view</summary>
 
 ```bash
 git clone https://github.com/DC925928496/AI-godot-mcp.git
@@ -135,16 +137,16 @@ npm install
 npm run build
 ```
 
-然后在 MCP 客户端配置中指向 `build/index.js` 而不是使用 `npx`。
+Then point your MCP client configuration to `build/index.js` instead of using `npx`.
 
 </details>
 
 ## Troubleshooting
 
-- **Godot 版本不匹配** → 确保使用 Godot 4.6.x（运行 `godot --version` 验证）
-- **插件未启用** → 在编辑器中检查 **项目 → 项目设置 → 插件**，确保 "AI Godot MCP" 已勾选
-- **WebSocket 连接失败** → 确认插件已启动且端口 6550 未被占用
-- **工具调用超时** → 确保 Godot 编辑器正在运行且插件已加载
+- **Godot version mismatch** → Ensure you're using Godot 4.6.x (verify with `godot --version`)
+- **Plugin not enabled** → Check **Project → Project Settings → Plugins** in editor, ensure "AI Godot MCP" is checked
+- **WebSocket connection failed** → Confirm plugin is started and port 6550 is not occupied
+- **Tool call timeout** → Ensure Godot editor is running and plugin is loaded
 
 ## License
 
