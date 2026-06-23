@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify MCP failures are structured, actionable, and not success-shaped."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Verify protocol output stays clean and operational logs use stderr."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Verify TypeScript quality, lint, build, and backend test expectations."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Verify carried-forward safety constraints for paths, type names, resources, and commands."}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Verify plugin lifecycle setup/teardown is explicit and safe."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify plugin-side contract validation and editor object safety."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Verify plugin scaffold and service boundary quality requirements."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check for duplicated constants, validation logic, or tool response shapes."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check consistency across MCP server, editor transport, and plugin payload contracts."}

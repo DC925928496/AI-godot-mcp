@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Node MCP server and editor-connection implementation must follow backend layer boundaries."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Defines where server modules, tool handlers, and utilities should live."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Phase 1 requires structured failures when the editor plugin is unreachable or unsupported."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "MCP stdio requires stdout cleanliness and stderr operational diagnostics."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Defines TypeScript quality and testing expectations for backend changes."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Repurposed safety contract for path, class-name, resource, and command-execution boundaries."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Godot plugin layer guidance applies to the editor-side service boundary."}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Defines plugin-side file placement for new editor-service code."}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Phase 1 touches EditorPlugin lifecycle and local service startup/teardown."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Connection and editor-service state should stay inside explicit plugin runtime boundaries."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Plugin request/response payloads and editor object lookups require explicit validation."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Defines GDScript/plugin quality and verification expectations."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Phase 1 spans MCP server, local editor transport, and Godot plugin contracts."}
