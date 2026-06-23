@@ -6,9 +6,16 @@ var port := 6550
 var undo_redo: EditorUndoRedoManager
 var current_txn := {}  # {id: String, name: String, step_count: int}
 
+# Log capture system
+var _log_buffer: Array[Dictionary] = []
+var _max_log_size := 1000
+var _is_scene_running := false
+var _scene_output_handler: Object = null
+
 func _ready() -> void:
 	server.create_server(port)
 	undo_redo = EditorInterface.get_editor_undo_redo()
+	_setup_log_capture()
 
 func _process(_delta: float) -> void:
 	server.poll()
@@ -350,3 +357,39 @@ func handle_get_resource_uid(req: Dictionary) -> Dictionary:
 	var resource_type = resource.get_class()
 
 	return {"id": req.id, "ok": true, "data": {"uid": str(resource_uid), "type": resource_type}}
+
+# Phase 4: Scene execution & logging
+func _setup_log_capture():
+	EditorInterface.get_script_editor().editor_script_changed.connect(_on_script_changed)
+
+func _on_script_changed(_script):
+	pass  # Hook for future log capture
+
+func _add_log(level: String, message: String, source: String):
+	_log_buffer.append({"timestamp": int(Time.get_unix_time_from_system()), "level": level, "message": message, "source": source})
+	if _log_buffer.size() > _max_log_size:
+		_log_buffer.pop_front()
+
+func handle_play_scene(req: Dictionary) -> Dictionary:
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open"}}
+	_is_scene_running = true
+	_add_log("info", "Scene started: " + root.scene_file_path, "runtime")
+	EditorInterface.play_current_scene()
+	return {"id": req.id, "ok": true, "data": {"scene_path": root.scene_file_path, "status": "running"}}
+
+func handle_stop_scene(req: Dictionary) -> Dictionary:
+	EditorInterface.stop_playing_scene()
+	_is_scene_running = false
+	_add_log("info", "Scene stopped", "runtime")
+	return {"id": req.id, "ok": true, "data": {"stopped": true}}
+
+func handle_get_logs(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var since_ts = params.get("since_timestamp", 0)
+	var filter_level = params.get("filter_level", "all")
+	var filtered = _log_buffer.filter(func(log):
+		return log.timestamp > since_ts and (filter_level == "all" or log.level == filter_level)
+	)
+	return {"id": req.id, "ok": true, "data": {"logs": filtered}}
