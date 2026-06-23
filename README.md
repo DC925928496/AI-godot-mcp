@@ -15,32 +15,34 @@ Production-grade Godot MCP service for AI-driven game development.
 
 ## Features
 
-### Phase 1: Read-Only Tools
+### 🔍 Project Inspection
 - **`get_project_context`** - Retrieve Godot version, project name, and plugin status
 - **`get_scene_tree`** - Get current scene node tree (supports depth limit and type filtering)
 - **`get_editor_logs`** - Fetch editor output panel logs (supports timestamp and level filtering)
 
-### Phase 2: Scene Editing & Transactions
+### 🎨 Scene Editing
 - **`create_scene`** - Create new scene files
-- **`add_node`** - Add nodes to scene tree
-- **`set_node_property`** - Modify node properties
-- **`delete_node`** - Delete nodes (supports undo)
-- **`load_resource`** - Load resource references
-- **`save_current_scene`** - Save current scene
-- **`begin_ai_action` / `end_ai_action`** - UndoRedo atomic transaction support
+- **`add_node`** - Add nodes to scene tree with automatic parent resolution
+- **`set_node_property`** - Modify node properties with type validation
+- **`delete_node`** - Delete nodes with full undo support
+- **`load_resource`** - Load and reference external resources
+- **`save_current_scene`** - Save current scene to disk
 
-### Phase 3: Script Attachment
-- **`attach_script`** - Attach GDScript to nodes
-- **`get_resource_uid`** - Get resource UID for validation
+### ⚡ Transaction Management
+- **`begin_ai_action` / `end_ai_action`** - Atomic batch operations with native UndoRedo integration
 
-### Phase 4: Scene Execution
-- **`play_current_scene`** - Run current scene (F6)
+### 📝 Script Management
+- **`attach_script`** - Attach GDScript to nodes with automatic template generation
+- **`get_resource_uid`** - Get resource UID for cross-reference validation
+
+### ▶️ Scene Execution
+- **`play_current_scene`** - Run current scene in editor (F6)
 - **`stop_running_scene`** - Stop running scene (F8)
 
-### Phase 5: CLI Tools
-- **`install`** - Deploy plugin to Godot projects
-- **`uninstall`** - Remove plugin from projects
-- **`version`** - Display version information
+### 🛠️ CLI Tools
+- **`install`** - Deploy plugin to Godot projects with version validation
+- **`uninstall`** - Clean removal of plugin from projects
+- **`version`** - Display version and compatibility information
 
 ## Requirements
 

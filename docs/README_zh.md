@@ -13,32 +13,34 @@
 
 ## 功能特性
 
-### 阶段 1：只读工具
+### 🔍 项目检查
 - **`get_project_context`** - 获取 Godot 版本、项目名称、插件状态
 - **`get_scene_tree`** - 获取当前场景节点树（支持深度限制和类型过滤）
 - **`get_editor_logs`** - 获取编辑器输出面板日志（支持时间戳和级别过滤）
 
-### 阶段 2：场景编辑与事务
+### 🎨 场景编辑
 - **`create_scene`** - 创建新场景文件
-- **`add_node`** - 向场景树添加节点
-- **`set_node_property`** - 修改节点属性
-- **`delete_node`** - 删除节点（支持撤销）
-- **`load_resource`** - 加载资源引用
-- **`save_current_scene`** - 保存当前场景
-- **`begin_ai_action` / `end_ai_action`** - UndoRedo 原子事务支持
+- **`add_node`** - 向场景树添加节点，自动解析父节点
+- **`set_node_property`** - 修改节点属性，带类型验证
+- **`delete_node`** - 删除节点，完整撤销支持
+- **`load_resource`** - 加载和引用外部资源
+- **`save_current_scene`** - 保存当前场景到磁盘
 
-### 阶段 3：脚本附加
-- **`attach_script`** - 附加 GDScript 到节点
-- **`get_resource_uid`** - 获取资源 UID 用于验证
+### ⚡ 事务管理
+- **`begin_ai_action` / `end_ai_action`** - 原子批量操作，集成原生 UndoRedo
 
-### 阶段 4：场景执行
-- **`play_current_scene`** - 运行当前场景（F6）
+### 📝 脚本管理
+- **`attach_script`** - 附加 GDScript 到节点，自动生成模板
+- **`get_resource_uid`** - 获取资源 UID 用于跨引用验证
+
+### ▶️ 场景执行
+- **`play_current_scene`** - 在编辑器中运行当前场景（F6）
 - **`stop_running_scene`** - 停止运行场景（F8）
 
-### 阶段 5：命令行工具
-- **`install`** - 部署插件到 Godot 项目
-- **`uninstall`** - 从项目中移除插件
-- **`version`** - 显示版本信息
+### 🛠️ 命令行工具
+- **`install`** - 部署插件到 Godot 项目，带版本验证
+- **`uninstall`** - 从项目中干净移除插件
+- **`version`** - 显示版本和兼容性信息
 
 ## 系统要求
 
