@@ -19,11 +19,11 @@ export class EditorConnection {
     });
   }
 
-  async send(method: string, params?: unknown): Promise<unknown> {
+  async send(method: string, params?: unknown, txnId?: string | null): Promise<unknown> {
     const id = Date.now().toString();
     return new Promise((resolve) => {
       this.pending.set(id, resolve);
-      this.ws!.send(JSON.stringify({ id, method, params }));
+      this.ws!.send(JSON.stringify({ id, method, params, txn_id: txnId }));
     });
   }
 }
