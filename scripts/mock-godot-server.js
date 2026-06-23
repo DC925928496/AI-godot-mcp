@@ -50,6 +50,54 @@ wss.on("connection", (ws) => {
         };
         break;
 
+      case "begin_ai_action":
+        response = { id: req.id, ok: true, data: { txn_id: "txn_123" } };
+        break;
+
+      case "end_ai_action":
+        response = { id: req.id, ok: true, data: {} };
+        break;
+
+      case "add_node":
+        response = { id: req.id, ok: true, data: { node_path: req.params?.parent_path + "/" + req.params?.node_name } };
+        break;
+
+      case "delete_node":
+        response = { id: req.id, ok: true, data: {} };
+        break;
+
+      case "set_node_property":
+        response = { id: req.id, ok: true, data: {} };
+        break;
+
+      case "create_scene":
+        response = { id: req.id, ok: true, data: { scene_path: "res://" + req.params?.scene_name + ".tscn" } };
+        break;
+
+      case "save_current_scene":
+        response = { id: req.id, ok: true, data: {} };
+        break;
+
+      case "attach_script":
+        response = { id: req.id, ok: true, data: { script_path: req.params?.script_path } };
+        break;
+
+      case "play_current_scene":
+        response = { id: req.id, ok: true, data: {} };
+        break;
+
+      case "stop_running_scene":
+        response = { id: req.id, ok: true, data: {} };
+        break;
+
+      case "get_script_content":
+        response = { id: req.id, ok: true, data: { content: "extends Node\n" } };
+        break;
+
+      case "list_scenes":
+        response = { id: req.id, ok: true, data: { scenes: ["res://main.tscn", "res://level1.tscn"] } };
+        break;
+
       default:
         response = {
           id: req.id,

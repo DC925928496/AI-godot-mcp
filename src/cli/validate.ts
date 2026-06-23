@@ -26,15 +26,17 @@ export function validateGodotVersion(projectPath: string): void {
   const projectFile = join(projectPath, 'project.godot');
   const content = readFileSync(projectFile, 'utf-8');
 
-  if (content.includes('config_version=4') || !content.includes('config_version=5')) {
+  const configMatch = content.match(/config_version\s*=\s*(\d+)/);
+  if (!configMatch || parseInt(configMatch[1]) < 5) {
     throw new Error('检测到 Godot 3.x 项目\nAI-godot-mcp 仅支持 Godot 4.6.x');
   }
 
   if (!content.includes('"4.6"')) {
     const match = content.match(/"4\.(\d+)"/);
     if (match) {
-      throw new Error(`检测到 Godot 4.${match[1]}.x\nAI-godot-mcp 需要 4.6.x 的编辑器 API\n请升级 Godot 到 4.6.x: https://godotengine.org/download/`);
+      console.warn(`警告: 检测到 Godot 4.${match[1]}.x，AI-godot-mcp 可能需要 4.6.x 特性`);
+    } else {
+      console.warn('警告: 无法检测具体 Godot 版本，建议使用 4.6.x');
     }
-    throw new Error('无法检测 Godot 版本，请确认项目有效');
   }
 }
