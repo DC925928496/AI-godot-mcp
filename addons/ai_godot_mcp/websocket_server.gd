@@ -6,6 +6,7 @@ var port := 6550
 var undo_redo: EditorUndoRedoManager
 var current_txn := {}  # {id: String, name: String, step_count: int}
 var auth_token := ""
+var editor_plugin: EditorPlugin = null
 
 # Log capture system
 var _log_buffer: Array[Dictionary] = []
@@ -79,8 +80,14 @@ func handle_request(req: Dictionary, client: WebSocketPeer = null) -> Dictionary
 				"ok": true,
 				"data": serialize_node(edited, req.get("params", {}).get("depth", 5))
 			}
+		"open_scene":
+			return handle_open_scene(req)
 		"get_editor_logs":
 			return handle_get_logs(req)
+		"get_input_map":
+			return handle_get_input_map(req)
+		"bind_input_key":
+			return handle_bind_input_key(req)
 		"begin_ai_action":
 			return handle_begin_action(req)
 		"end_ai_action":
@@ -96,10 +103,16 @@ func handle_request(req: Dictionary, client: WebSocketPeer = null) -> Dictionary
 			return handle_delete_node(req)
 		"create_scene":
 			return handle_create_scene(req)
+		"instantiate_scene":
+			return handle_instantiate_scene(req)
 		"load_resource":
 			return handle_load_resource(req)
 		"save_current_scene":
 			return handle_save_scene(req)
+		"connect_signal":
+			return handle_connect_signal(req)
+		"disconnect_signal":
+			return handle_disconnect_signal(req)
 		"attach_script":
 			return handle_attach_script(req)
 		"get_resource_uid":
@@ -108,6 +121,20 @@ func handle_request(req: Dictionary, client: WebSocketPeer = null) -> Dictionary
 			return handle_play_scene(req)
 		"stop_running_scene":
 			return handle_stop_scene(req)
+		"list_autoloads":
+			return handle_list_autoloads(req)
+		"set_autoload":
+			return handle_set_autoload(req)
+		"remove_autoload":
+			return handle_remove_autoload(req)
+		"add_node_to_group":
+			return handle_add_node_to_group(req)
+		"remove_node_from_group":
+			return handle_remove_node_from_group(req)
+		"reparent_node":
+			return handle_reparent_node(req)
+		"duplicate_node":
+			return handle_duplicate_node(req)
 		_:
 			return {"id": req.id, "ok": false, "error": {"code": "UNKNOWN_METHOD", "message": "Unknown method"}}
 
@@ -160,11 +187,200 @@ func rollback_txn() -> void:
 	current_txn.clear()
 
 func _validate_path(path: String) -> bool:
-	return path.begins_with("res://") and not ".." in path
+	return path.begins_with("res://") and not ".." in path and not "\\" in path
+
+func _validate_scene_path(path: String) -> bool:
+	return _validate_path(path) and path.ends_with(".tscn")
+
+func _validate_identifier(value: String) -> bool:
+	if value == "":
+		return false
+	var first = value.unicode_at(0)
+	if not ((first >= 65 and first <= 90) or (first >= 97 and first <= 122) or first == 95):
+		return false
+	for index in range(1, value.length()):
+		var code = value.unicode_at(index)
+		if not ((code >= 65 and code <= 90) or (code >= 97 and code <= 122) or (code >= 48 and code <= 57) or code == 95):
+			return false
+	return true
+
+func _validate_node_path(path: String) -> bool:
+	return path != "" and path == path.strip_edges() and not ".." in path and not "\\" in path
+
+func _validate_node_name(node_name: String) -> bool:
+	return node_name != "" and node_name == node_name.strip_edges() and not "/" in node_name and not "\\" in node_name and not ".." in node_name
+
+func _get_autoload_path(setting_value) -> String:
+	var autoload_path = str(setting_value)
+	return autoload_path.substr(1) if autoload_path.begins_with("*") else autoload_path
+
+func _is_autoload_singleton(setting_value) -> bool:
+	return str(setting_value).begins_with("*")
 
 func _validate_class_name(class_name: String) -> bool:
 	var blacklist = ["EditorInterface", "ScriptEditor", "OS", "EditorPlugin", "EditorScript", "FileAccess", "DirAccess", "IP", "HTTPRequest", "Engine"]
 	return class_name not in blacklist
+
+func _get_target_node(root: Node, node_path: String):
+	return root if node_path == "." else root.get_node_or_null(node_path)
+
+func _find_signal_connection_flags(source_node: Object, signal_name: String, callable: Callable) -> int:
+	for connection in source_node.get_signal_connection_list(signal_name):
+		if connection.get("callable") == callable:
+			return int(connection.get("flags", 0))
+	return -1
+
+func _serialize_input_event(event: InputEvent) -> Dictionary:
+	var data = {
+		"class": event.get_class(),
+		"as_text": event.as_text(),
+	}
+	if event is InputEventKey:
+		data["keycode"] = event.keycode
+		data["physical_keycode"] = event.physical_keycode
+		data["ctrl"] = event.ctrl_pressed
+		data["alt"] = event.alt_pressed
+		data["shift"] = event.shift_pressed
+		data["meta"] = event.meta_pressed
+	return data
+
+func _input_events_equal(left: InputEvent, right: InputEvent) -> bool:
+	if left.get_class() != right.get_class():
+		return false
+	if left is InputEventKey and right is InputEventKey:
+		return left.keycode == right.keycode and left.physical_keycode == right.physical_keycode and left.ctrl_pressed == right.ctrl_pressed and left.alt_pressed == right.alt_pressed and left.shift_pressed == right.shift_pressed and left.meta_pressed == right.meta_pressed
+	return left.as_text() == right.as_text()
+
+func _get_project_input_actions() -> Array[String]:
+	var actions: Array[String] = []
+	for prop in ProjectSettings.get_property_list():
+		var property_name = str(prop.name)
+		if property_name.begins_with("input/"):
+			actions.append(property_name.substr(6))
+	actions.sort()
+	return actions
+
+func _get_project_input_setting(action_name: String) -> Dictionary:
+	var setting_key = "input/" + action_name
+	var current_value = ProjectSettings.get_setting(setting_key, {"deadzone": 0.2, "events": []})
+	if current_value is Dictionary:
+		return current_value.duplicate(true)
+	return {"deadzone": 0.2, "events": []}
+
+func _get_keycode_from_name(key_name: String) -> Key:
+	var normalized = key_name.strip_edges().to_upper()
+	if normalized == "ENTER":
+		return KEY_ENTER
+	if normalized == "ESC" or normalized == "ESCAPE":
+		return KEY_ESCAPE
+	if normalized == "SPACE":
+		return KEY_SPACE
+	if normalized == "TAB":
+		return KEY_TAB
+	if normalized == "BACKSPACE":
+		return KEY_BACKSPACE
+	if normalized == "DELETE":
+		return KEY_DELETE
+	if normalized == "INSERT":
+		return KEY_INSERT
+	if normalized == "HOME":
+		return KEY_HOME
+	if normalized == "END":
+		return KEY_END
+	if normalized == "PAGE_UP":
+		return KEY_PAGEUP
+	if normalized == "PAGE_DOWN":
+		return KEY_PAGEDOWN
+	if normalized == "UP":
+		return KEY_UP
+	if normalized == "DOWN":
+		return KEY_DOWN
+	if normalized == "LEFT":
+		return KEY_LEFT
+	if normalized == "RIGHT":
+		return KEY_RIGHT
+	if normalized.length() == 1:
+		var unicode_value = normalized.unicode_at(0)
+		if unicode_value >= 65 and unicode_value <= 90:
+			return unicode_value
+		if unicode_value >= 48 and unicode_value <= 57:
+			return unicode_value
+	if normalized.is_valid_int():
+		return int(normalized)
+	return KEY_NONE
+
+func _save_project_settings() -> Error:
+	var save_err = ProjectSettings.save()
+	if save_err == OK:
+		InputMap.load_from_project_settings()
+	return save_err
+
+func handle_open_scene(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var scene_path = params.get("scene_path", "")
+
+	if not _validate_path(scene_path):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PATH", "message": "Invalid scene path: " + scene_path}}
+
+	if not _validate_scene_path(scene_path):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SCENE", "message": "Scene path must end with .tscn: " + scene_path}}
+
+	if not ResourceLoader.exists(scene_path):
+		return {"id": req.id, "ok": false, "error": {"code": "SCENE_NOT_FOUND", "message": "Scene not found: " + scene_path}}
+
+	EditorInterface.open_scene_from_path(scene_path)
+	return {"id": req.id, "ok": true, "data": {"scene_path": scene_path, "opened": true}}
+
+func handle_get_input_map(req: Dictionary) -> Dictionary:
+	var actions: Array[Dictionary] = []
+	for action_name in _get_project_input_actions():
+		var action_config = _get_project_input_setting(action_name)
+		var serialized_events: Array[Dictionary] = []
+		for event in action_config.get("events", []):
+			serialized_events.append(_serialize_input_event(event))
+		actions.append({
+			"action_name": action_name,
+			"deadzone": float(action_config.get("deadzone", 0.2)),
+			"events": serialized_events,
+		})
+	return {"id": req.id, "ok": true, "data": {"actions": actions}}
+
+func handle_bind_input_key(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var action_name = params.get("action_name", "").strip_edges()
+	var key_name = params.get("key", "").strip_edges()
+
+	if not _validate_identifier(action_name):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_ACTION", "message": "Action name must not be empty"}}
+
+	var keycode = _get_keycode_from_name(key_name)
+	if keycode == KEY_NONE:
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_KEY", "message": "Unsupported key: " + key_name}}
+
+	var action_config = _get_project_input_setting(action_name)
+	var events: Array = action_config.get("events", [])
+	var event = InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.ctrl_pressed = params.get("ctrl", false)
+	event.alt_pressed = params.get("alt", false)
+	event.shift_pressed = params.get("shift", false)
+	event.meta_pressed = params.get("meta", false)
+
+	for existing_event in events:
+		if _input_events_equal(existing_event, event):
+			return {"id": req.id, "ok": true, "data": {"action_name": action_name, "event_text": event.as_text(), "created": false}}
+
+	events.append(event)
+	action_config["events"] = events
+	if not action_config.has("deadzone"):
+		action_config["deadzone"] = 0.2
+	ProjectSettings.set_setting("input/" + action_name, action_config)
+	var save_err = _save_project_settings()
+	if save_err != OK:
+		return {"id": req.id, "ok": false, "error": {"code": "SAVE_FAILED", "message": "Failed to save input map changes: " + str(save_err)}}
+
+	return {"id": req.id, "ok": true, "data": {"action_name": action_name, "event_text": event.as_text(), "created": true}}
 
 # Write operations
 func handle_add_node(req: Dictionary) -> Dictionary:
@@ -321,6 +537,72 @@ func handle_create_scene(req: Dictionary) -> Dictionary:
 
 	return {"id": req.id, "ok": true, "data": {"scene_path": scene_path}}
 
+func handle_instantiate_scene(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "instantiate_scene"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var parent_path = params.get("parent_path", "")
+	var scene_path = params.get("scene_path", "")
+	var node_name = params.get("node_name", "")
+
+	if not _validate_path(scene_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PATH", "message": "Invalid scene path: " + scene_path, "failed_step": step}}
+
+	if not _validate_scene_path(scene_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SCENE", "message": "Scene path must end with .tscn: " + scene_path, "failed_step": step}}
+
+	if node_name != "" and not _validate_identifier(node_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NODE_NAME", "message": "Invalid node name: " + node_name, "failed_step": step}}
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var parent = _get_target_node(root, parent_path)
+	if not parent:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Parent not found: " + parent_path, "failed_step": step}}
+
+	if not ResourceLoader.exists(scene_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "SCENE_NOT_FOUND", "message": "Scene not found: " + scene_path, "failed_step": step}}
+
+	var packed_scene = ResourceLoader.load(scene_path)
+	if not packed_scene or not (packed_scene is PackedScene):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SCENE", "message": "Resource is not a PackedScene: " + scene_path, "failed_step": step}}
+
+	var instance = packed_scene.instantiate()
+	if not instance:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INSTANTIATE_FAILED", "message": "Failed to instantiate scene: " + scene_path, "failed_step": step}}
+
+	if node_name != "":
+		instance.name = node_name
+	instance.owner = root
+
+	undo_redo.add_do_method(parent, "add_child", instance)
+	undo_redo.add_do_property(instance, "owner", root)
+	undo_redo.add_undo_method(parent, "remove_child", instance)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	var created_path = instance.name if parent_path == "." else (parent_path + "/" + instance.name if parent_path != "" else instance.name)
+	return {"id": req.id, "ok": true, "data": {"node_path": created_path, "scene_path": scene_path}}
+
 func handle_load_resource(req: Dictionary) -> Dictionary:
 	var params = req.get("params", {})
 	var resource_path = params.get("resource_path", "")
@@ -357,6 +639,137 @@ func handle_save_scene(req: Dictionary) -> Dictionary:
 		return {"id": req.id, "ok": false, "error": {"code": "SAVE_FAILED", "message": "Save failed: " + str(err)}}
 
 	return {"id": req.id, "ok": true, "data": {"saved_path": scene_path}}
+
+func handle_connect_signal(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "connect_signal"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var source_node_path = params.get("source_node_path", "")
+	var signal_name = params.get("signal_name", "")
+	var target_node_path = params.get("target_node_path", "")
+	var method_name = params.get("method_name", "")
+	var deferred = params.get("deferred", false)
+	var one_shot = params.get("one_shot", false)
+
+	if not _validate_identifier(signal_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SIGNAL", "message": "Invalid signal name: " + signal_name, "failed_step": step}}
+
+	if not _validate_identifier(method_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_METHOD", "message": "Invalid method name: " + method_name, "failed_step": step}}
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var source_node = _get_target_node(root, source_node_path)
+	if not source_node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Source node not found: " + source_node_path, "failed_step": step}}
+
+	var target_node = _get_target_node(root, target_node_path)
+	if not target_node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Target node not found: " + target_node_path, "failed_step": step}}
+
+	if not source_node.has_signal(signal_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "SIGNAL_NOT_FOUND", "message": "Signal not found: " + signal_name, "failed_step": step}}
+
+	if not target_node.has_method(method_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "METHOD_NOT_FOUND", "message": "Method not found on target node: " + method_name, "failed_step": step}}
+
+	var callable = Callable(target_node, method_name)
+	if source_node.is_connected(signal_name, callable):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "ALREADY_CONNECTED", "message": "Signal is already connected", "failed_step": step}}
+
+	var flags = CONNECT_PERSIST
+	if deferred:
+		flags |= CONNECT_DEFERRED
+	if one_shot:
+		flags |= CONNECT_ONE_SHOT
+
+	undo_redo.add_do_method(source_node, "connect", signal_name, callable, flags)
+	undo_redo.add_undo_method(source_node, "disconnect", signal_name, callable)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	return {"id": req.id, "ok": true, "data": {"connected": true, "flags": flags}}
+
+func handle_disconnect_signal(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "disconnect_signal"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var source_node_path = params.get("source_node_path", "")
+	var signal_name = params.get("signal_name", "")
+	var target_node_path = params.get("target_node_path", "")
+	var method_name = params.get("method_name", "")
+
+	if not _validate_identifier(signal_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SIGNAL", "message": "Invalid signal name: " + signal_name, "failed_step": step}}
+
+	if not _validate_identifier(method_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_METHOD", "message": "Invalid method name: " + method_name, "failed_step": step}}
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var source_node = _get_target_node(root, source_node_path)
+	if not source_node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Source node not found: " + source_node_path, "failed_step": step}}
+
+	var target_node = _get_target_node(root, target_node_path)
+	if not target_node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Target node not found: " + target_node_path, "failed_step": step}}
+
+	if not source_node.has_signal(signal_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "SIGNAL_NOT_FOUND", "message": "Signal not found: " + signal_name, "failed_step": step}}
+
+	if not target_node.has_method(method_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "METHOD_NOT_FOUND", "message": "Method not found on target node: " + method_name, "failed_step": step}}
+
+	var callable = Callable(target_node, method_name)
+	var existing_flags = _find_signal_connection_flags(source_node, signal_name, callable)
+	if existing_flags == -1:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "CONNECTION_NOT_FOUND", "message": "Signal connection not found", "failed_step": step}}
+
+	undo_redo.add_do_method(source_node, "disconnect", signal_name, callable)
+	undo_redo.add_undo_method(source_node, "connect", signal_name, callable, existing_flags)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	return {"id": req.id, "ok": true, "data": {"disconnected": true}}
 
 func handle_attach_script(req: Dictionary) -> Dictionary:
 	var params = req.get("params", {})
@@ -589,3 +1002,295 @@ func handle_get_logs(req: Dictionary) -> Dictionary:
 		return log.timestamp > since_ts and (filter_level == "all" or log.level == filter_level)
 	)
 	return {"id": req.id, "ok": true, "data": {"logs": filtered, "log_capture": _get_runtime_log_capture_status()}}
+
+# Batch 2: Project and structure management
+func handle_list_autoloads(req: Dictionary) -> Dictionary:
+	var autoloads: Array[Dictionary] = []
+	for prop in ProjectSettings.get_property_list():
+		var property_name = str(prop.name)
+		if property_name.begins_with("autoload/"):
+			var autoload_name = property_name.substr(9)
+			var autoload_setting = ProjectSettings.get_setting(property_name)
+			autoloads.append({
+				"name": autoload_name,
+				"path": _get_autoload_path(autoload_setting),
+				"is_singleton": _is_autoload_singleton(autoload_setting),
+			})
+	return {"id": req.id, "ok": true, "data": {"autoloads": autoloads}}
+
+func handle_set_autoload(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var autoload_name = params.get("name", "")
+	var autoload_path = params.get("path", "")
+	var is_singleton = params.get("is_singleton", true)
+
+	if not _validate_identifier(autoload_name):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NAME", "message": "Invalid autoload name: " + autoload_name}}
+
+	if not is_singleton:
+		return {"id": req.id, "ok": false, "error": {"code": "UNSUPPORTED_AUTOLOAD_MODE", "message": "Only singleton autoloads are supported through the Godot EditorPlugin API"}}
+
+	if not _validate_path(autoload_path):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PATH", "message": "Invalid autoload path: " + autoload_path}}
+
+	if not ResourceLoader.exists(autoload_path):
+		return {"id": req.id, "ok": false, "error": {"code": "RESOURCE_NOT_FOUND", "message": "Resource not found: " + autoload_path}}
+
+	if not editor_plugin:
+		return {"id": req.id, "ok": false, "error": {"code": "PLUGIN_API_UNAVAILABLE", "message": "EditorPlugin API is not available for autoload management"}}
+
+	var setting_key = "autoload/" + autoload_name
+	if ProjectSettings.has_setting(setting_key):
+		editor_plugin.remove_autoload_singleton(autoload_name)
+	editor_plugin.add_autoload_singleton(autoload_name, autoload_path)
+
+	var save_err = ProjectSettings.save()
+	if save_err != OK:
+		return {"id": req.id, "ok": false, "error": {"code": "SAVE_FAILED", "message": "Failed to save autoload settings: " + str(save_err)}}
+
+	return {"id": req.id, "ok": true, "data": {"name": autoload_name, "path": autoload_path, "is_singleton": is_singleton}}
+
+func handle_remove_autoload(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var autoload_name = params.get("name", "")
+
+	if not _validate_identifier(autoload_name):
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NAME", "message": "Invalid autoload name: " + autoload_name}}
+
+	var setting_key = "autoload/" + autoload_name
+	if not ProjectSettings.has_setting(setting_key):
+		return {"id": req.id, "ok": false, "error": {"code": "AUTOLOAD_NOT_FOUND", "message": "Autoload not found: " + autoload_name}}
+
+	if not editor_plugin:
+		return {"id": req.id, "ok": false, "error": {"code": "PLUGIN_API_UNAVAILABLE", "message": "EditorPlugin API is not available for autoload management"}}
+
+	editor_plugin.remove_autoload_singleton(autoload_name)
+
+	var save_err = ProjectSettings.save()
+	if save_err != OK:
+		return {"id": req.id, "ok": false, "error": {"code": "SAVE_FAILED", "message": "Failed to save autoload settings: " + str(save_err)}}
+
+	return {"id": req.id, "ok": true, "data": {"removed": autoload_name}}
+
+func handle_add_node_to_group(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "add_node_to_group"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var node_path = params.get("node_path", "")
+	var group_name = params.get("group_name", "")
+	var persistent = params.get("persistent", false)
+
+	if not _validate_node_path(node_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NODE_PATH", "message": "Invalid node path: " + node_path, "failed_step": step}}
+
+	if not _validate_identifier(group_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_GROUP", "message": "Invalid group name: " + group_name, "failed_step": step}}
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var node = _get_target_node(root, node_path)
+	if not node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
+
+	if node.is_in_group(group_name):
+		if auto_txn:
+			handle_end_action({"id": ""})
+		return {"id": req.id, "ok": true, "data": {"node_path": node_path, "group": group_name, "already_in_group": true}}
+
+	undo_redo.add_do_method(node, "add_to_group", group_name, persistent)
+	undo_redo.add_undo_method(node, "remove_from_group", group_name)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	return {"id": req.id, "ok": true, "data": {"node_path": node_path, "group": group_name, "added": true}}
+
+func handle_remove_node_from_group(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "remove_node_from_group"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var node_path = params.get("node_path", "")
+	var group_name = params.get("group_name", "")
+
+	if not _validate_node_path(node_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NODE_PATH", "message": "Invalid node path: " + node_path, "failed_step": step}}
+
+	if not _validate_identifier(group_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_GROUP", "message": "Invalid group name: " + group_name, "failed_step": step}}
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var node = _get_target_node(root, node_path)
+	if not node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
+
+	if not node.is_in_group(group_name):
+		if auto_txn:
+			handle_end_action({"id": ""})
+		return {"id": req.id, "ok": true, "data": {"node_path": node_path, "group": group_name, "not_in_group": true}}
+
+	undo_redo.add_do_method(node, "remove_from_group", group_name)
+	undo_redo.add_undo_method(node, "add_to_group", group_name, false)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	return {"id": req.id, "ok": true, "data": {"node_path": node_path, "group": group_name, "removed": true}}
+
+func handle_reparent_node(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "reparent_node"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var node_path = params.get("node_path", "")
+	var new_parent_path = params.get("new_parent_path", "")
+	var keep_global_transform = params.get("keep_global_transform", true)
+
+	if not _validate_node_path(node_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NODE_PATH", "message": "Invalid node path: " + node_path, "failed_step": step}}
+
+	if not _validate_node_path(new_parent_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NODE_PATH", "message": "Invalid new parent path: " + new_parent_path, "failed_step": step}}
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var node = _get_target_node(root, node_path)
+	if not node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
+
+	var new_parent = _get_target_node(root, new_parent_path)
+	if not new_parent:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "New parent not found: " + new_parent_path, "failed_step": step}}
+
+	if node == root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "CANNOT_REPARENT_ROOT", "message": "Cannot reparent the edited scene root", "failed_step": step}}
+
+	if node == new_parent or node.is_ancestor_of(new_parent):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PARENT", "message": "New parent cannot be the node itself or one of its descendants", "failed_step": step}}
+
+	var old_parent = node.get_parent()
+	if not old_parent:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_PARENT", "message": "Node has no parent", "failed_step": step}}
+
+	if old_parent == new_parent:
+		if auto_txn:
+			handle_end_action({"id": ""})
+		return {"id": req.id, "ok": true, "data": {"node_path": node_path, "old_parent": old_parent.name, "new_parent": new_parent.name, "unchanged": true}}
+
+	var old_index = node.get_index()
+	undo_redo.add_do_method(node, "reparent", new_parent, keep_global_transform)
+	undo_redo.add_undo_method(node, "reparent", old_parent, keep_global_transform)
+	undo_redo.add_undo_method(old_parent, "move_child", node, old_index)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	return {"id": req.id, "ok": true, "data": {"node_path": node_path, "old_parent": old_parent.name, "new_parent": new_parent.name}}
+
+func handle_duplicate_node(req: Dictionary) -> Dictionary:
+	var params = req.get("params", {})
+	var txn_id = req.get("txn_id")
+	var auto_txn = txn_id == null or txn_id == ""
+
+	if auto_txn:
+		txn_id = "auto_" + str(Time.get_ticks_msec())
+		handle_begin_action({"id": "", "params": {"name": "duplicate_node"}, "txn_id": txn_id})
+
+	current_txn.step_count += 1
+	var step = current_txn.step_count
+
+	var node_path = params.get("node_path", "")
+	var new_name = params.get("new_name", "")
+
+	if not _validate_node_path(node_path):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NODE_PATH", "message": "Invalid node path: " + node_path, "failed_step": step}}
+
+	if new_name != "" and not _validate_node_name(new_name):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_NODE_NAME", "message": "Invalid node name: " + new_name, "failed_step": step}}
+
+	var root = EditorInterface.get_edited_scene_root()
+	if not root:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_SCENE", "message": "No scene open", "failed_step": step}}
+
+	var node = _get_target_node(root, node_path)
+	if not node:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
+
+	var parent = node.get_parent()
+	if not parent:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_PARENT", "message": "Node has no parent", "failed_step": step}}
+
+	var duplicate = node.duplicate()
+	if not duplicate:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "DUPLICATE_FAILED", "message": "Failed to duplicate node", "failed_step": step}}
+
+	if new_name != "":
+		duplicate.name = new_name
+	else:
+		duplicate.name = node.name + "_copy"
+	duplicate.owner = root
+
+	undo_redo.add_do_method(parent, "add_child", duplicate)
+	undo_redo.add_do_property(duplicate, "owner", root)
+	undo_redo.add_undo_method(parent, "remove_child", duplicate)
+
+	if auto_txn:
+		handle_end_action({"id": ""})
+
+	var parent_node = node.get_parent()
+	var parent_path_str = ""
+	if parent_node != root:
+		parent_path_str = root.get_path_to(parent_node)
+	var duplicate_path = duplicate.name if parent_path_str == "" else (parent_path_str + "/" + duplicate.name)
+	return {"id": req.id, "ok": true, "data": {"original_path": node_path, "duplicate_path": duplicate_path}}

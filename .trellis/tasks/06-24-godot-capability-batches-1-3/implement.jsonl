@@ -1,0 +1,8 @@
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/backend/index.md","reason":"Backend MCP tool additions and validation rules apply to new Node-side tool registration and transport behavior."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/backend/database-guidelines.md","reason":"New path and class-related inputs must keep the existing safety contract for Godot-side operations."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/backend/error-handling.md","reason":"New tools must preserve structured error behavior at the MCP boundary."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/backend/quality-guidelines.md","reason":"TypeScript implementation and validation changes should follow the repo's backend quality bar."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/frontend/index.md","reason":"The Godot plugin layer is stored under frontend specs and governs editor/plugin-side changes."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/frontend/type-safety.md","reason":"Plugin-side validation for signals, scenes, and input map mutation must remain explicit and safe."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/frontend/quality-guidelines.md","reason":"GDScript-side implementation should follow the plugin quality bar."}
+{"file":"E:/code/AI-godot-mcp/.trellis/tasks/06-24-vision-dual-readmes-roadmap/research/vision-roadmap.md","reason":"This roadmap explains the product boundary and why richer capabilities matter more than hard-coded workflows."}

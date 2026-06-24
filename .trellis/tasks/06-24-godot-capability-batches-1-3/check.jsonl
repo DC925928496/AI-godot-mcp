@@ -1,0 +1,5 @@
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/backend/error-handling.md","reason":"Check that new tools still surface structured MCP-safe errors."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/backend/quality-guidelines.md","reason":"Check Node-side tool registration, validation, and tests against the backend quality bar."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/frontend/quality-guidelines.md","reason":"Check GDScript handler quality, validation flow, and safety boundaries."}
+{"file":"E:/code/AI-godot-mcp/.trellis/spec/frontend/type-safety.md","reason":"Check that plugin-side validation remains explicit for scene, signal, and input-map operations."}
+{"file":"E:/code/AI-godot-mcp/.trellis/tasks/06-24-godot-capability-batches-1-3/prd.md","reason":"Review implementation and scope against the approved batch plan, especially Batch 1 only."}

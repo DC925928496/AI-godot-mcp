@@ -1,0 +1,28 @@
+{
+  "id": "vision-dual-readmes-roadmap",
+  "name": "vision-dual-readmes-roadmap",
+  "title": "vision in dual readmes and roadmap research",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chasel",
+  "assignee": "chasel",
+  "createdAt": "2026-06-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-24-godot-capability-batches-1-3"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -32,6 +32,7 @@ func _enter_tree() -> void:
 	add_control_to_dock(DOCK_SLOT_RIGHT_UL, _dock_instance)
 
 	_ws_server = load("res://addons/ai_godot_mcp/websocket_server.gd").new()
+	_ws_server.editor_plugin = self
 	add_child(_ws_server)
 
 

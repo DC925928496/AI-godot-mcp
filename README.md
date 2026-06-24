@@ -13,6 +13,21 @@ Production-grade Godot MCP service for AI-driven game development.
 
 > Inspired by [dpeachpeach/godot-mcp](https://github.com/dpeachpeach/godot-mcp)
 
+## Vision
+
+AI-godot-mcp aims to let ordinary people build Godot games with coding agents such as Codex, using this project as the editor bridge and the Godot editor as the live development surface.
+
+The long-term goal is not to hard-code game-building workflows into MCP. The goal is to give agents a reliable Godot execution layer: the agent does the planning and reasoning, while AI-godot-mcp safely inspects, mutates, runs, and observes the editor on the agent's behalf.
+
+## What Comes Next
+
+The repository already has the low-level MCP bridge. The next direction is to make that bridge a better execution substrate for Codex-style agents:
+
+- keep workflow intelligence in the agent layer, while expanding MCP into a more complete and composable Godot capability surface
+- strengthen the observe-repair loop with clearer in-editor status, operation history, and run feedback
+- lower the onboarding cost with starter templates, example projects, and docs that show how agents can drive the editor effectively
+- expand the Godot authoring surface toward signals, input maps, scene instancing, autoloads, and common UI flows
+
 ## Features
 
 ### 🔍 Project Inspection
