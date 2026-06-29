@@ -48,6 +48,64 @@
 
 ---
 
+## Scenario: Editor Connection Shutdown
+
+### 1. Scope / Trigger
+
+- Trigger: code opens a WebSocket connection from the Node MCP layer to the
+  Godot editor plugin and later closes it intentionally.
+
+### 2. Signatures
+
+- `EditorConnection.connect()`
+- `EditorConnection.send(method, params?, txnId?)`
+- `EditorConnection.close()`
+
+### 3. Contracts
+
+- `close()` is the public shutdown path for callers and tests.
+- Intentional shutdown must clear ping timers and pending request timers.
+- Intentional shutdown must not schedule reconnect attempts.
+- Unexpected socket close may still use the reconnect path.
+
+### 4. Validation & Error Matrix
+
+- pending requests during intentional close -> reject with `Connection closed`
+- pending requests during reconnecting close -> reject with
+  `Connection lost, reconnecting...`
+- explicit `close()` -> no reconnect timer, no live ping interval
+
+### 5. Good / Base / Bad Cases
+
+- Good: `test-p0.mjs` calls `conn.close()` after a successful Godot integration
+  run and the Node process exits naturally.
+- Base: an unexpected plugin/editor disconnect triggers the bounded reconnect
+  logic.
+- Bad: directly calling `ws.close()` from outside the class and letting the
+  internal close handler schedule reconnect timers that keep tests alive.
+
+### 6. Tests Required
+
+- Unit regression proving `close()` clears intervals and does not schedule
+  reconnects.
+- Integration smoke test proving `test-p0.mjs` exits after play/log/stop.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```js
+conn["ws"]?.close();
+```
+
+#### Correct
+
+```ts
+conn.close();
+```
+
+---
+
 ## Real examples in this repository
 
 - [src/index.ts](/E:/code/AI-godot-mcp/src/index.ts)

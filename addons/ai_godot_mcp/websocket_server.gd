@@ -66,8 +66,8 @@ func _process(_delta: float) -> void:
 		client.poll()
 		if client.get_ready_state() == WebSocketPeer.STATE_OPEN:
 			while client.get_available_packet_count() > 0:
-				var data := client.get_packet().get_string_from_utf8()
-				var response := handle_request(JSON.parse_string(data), client)
+				var data: String = client.get_packet().get_string_from_utf8()
+				var response: Dictionary = handle_request(JSON.parse_string(data), client)
 				client.send_text(JSON.stringify(response))
 		elif client.get_ready_state() == WebSocketPeer.STATE_CLOSED:
 			clients.erase(client)
@@ -231,9 +231,9 @@ func _get_autoload_path(setting_value) -> String:
 func _is_autoload_singleton(setting_value) -> bool:
 	return str(setting_value).begins_with("*")
 
-func _validate_class_name(class_name: String) -> bool:
+func _validate_class_name(type_name: String) -> bool:
 	var blacklist = ["EditorInterface", "ScriptEditor", "OS", "EditorPlugin", "EditorScript", "FileAccess", "DirAccess", "IP", "HTTPRequest", "Engine"]
-	return class_name not in blacklist
+	return type_name not in blacklist
 
 func _object_has_property(target: Object, property_name: String) -> bool:
 	for property_info in target.get_property_list():

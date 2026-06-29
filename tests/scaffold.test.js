@@ -44,5 +44,7 @@ test("plugin source avoids ambiguous Godot parser forms", () => {
   assert.doesNotMatch(serverScript, /not "\\\\"\s+in/);
   assert.doesNotMatch(serverScript, /if not property in node:/);
   assert.doesNotMatch(serverScript, /if not script is GDScript:/);
+  assert.doesNotMatch(serverScript, /class_name: String/);
   assert.match(serverScript, /func _object_has_property/);
+  assert.match(serverScript, /var data: String = client\.get_packet\(\)\.get_string_from_utf8\(\)/);
 });

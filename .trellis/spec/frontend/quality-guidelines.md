@@ -120,7 +120,9 @@ peer.accept_stream(tcp_peer)
 
 > Parser-safety note: prefer explicit calls such as `path.contains("..")` and
 > `not (script is GDScript)` over ambiguous `not X in Y` or `not X is Type`
-> forms in plugin startup scripts.
+> forms in plugin startup scripts. Do not use GDScript keywords such as
+> `class_name` as parameter/local names, and prefer explicit local types over
+> `:=` when Godot cannot infer the return type during `--check-only`.
 
 ---
 

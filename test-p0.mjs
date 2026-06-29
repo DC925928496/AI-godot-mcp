@@ -57,6 +57,6 @@ test('manual Godot integration smoke test', async (t) => {
 
     console.log('🎉 P0 修复验证通过！');
   } finally {
-    conn['ws']?.close();
+    conn.close();
   }
 });

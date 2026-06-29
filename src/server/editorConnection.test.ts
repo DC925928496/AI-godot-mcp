@@ -44,4 +44,37 @@ describe("EditorConnection", () => {
     await Promise.allSettled(promises);
     assert.strictEqual(ids.size, 100);
   });
+
+  it("close does not schedule reconnects", () => {
+    const conn = new EditorConnection(6553);
+    let closeHandler: (() => void) | null = null;
+    let closeCalled = false;
+    const mockWs = {
+      readyState: WebSocket.OPEN,
+      close: () => {
+        closeCalled = true;
+        closeHandler?.();
+      },
+      on: (event: string, cb: () => void) => {
+        if (event === "close") closeHandler = cb;
+      },
+      once: () => {},
+      send: () => {},
+    };
+    (conn as any).ws = mockWs;
+    (conn as any).reconnectAttempts = 0;
+    (conn as any)._startPing();
+    mockWs.on("close", () => {
+      const shouldReconnect = !(conn as any).intentionalClose && (conn as any).reconnectAttempts < (conn as any).maxReconnects;
+      (conn as any)._cleanup(shouldReconnect);
+      if (shouldReconnect) (conn as any).reconnectAttempts++;
+    });
+
+    conn.close();
+
+    assert.equal(closeCalled, true);
+    assert.equal((conn as any).pending.size, 0);
+    assert.equal((conn as any).pingInterval, null);
+    assert.equal((conn as any).reconnectAttempts, (conn as any).maxReconnects);
+  });
 });

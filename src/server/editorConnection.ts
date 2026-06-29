@@ -11,6 +11,7 @@ export class EditorConnection {
   private reconnectAttempts = 0;
   private maxReconnects = 3;
   private authToken: string = "";
+  private intentionalClose = false;
 
   constructor(private port = 6550) {}
 
@@ -30,6 +31,7 @@ export class EditorConnection {
   }
 
   private async _connect(): Promise<void> {
+    this.intentionalClose = false;
     this.ws = new WebSocket(`ws://localhost:${this.port}`);
 
     this.ws.on("message", (data) => {
@@ -50,7 +52,7 @@ export class EditorConnection {
     });
 
     this.ws.on("close", () => {
-      const shouldReconnect = this.reconnectAttempts < this.maxReconnects;
+      const shouldReconnect = !this.intentionalClose && this.reconnectAttempts < this.maxReconnects;
       this._cleanup(shouldReconnect);
       if (shouldReconnect) {
         this.reconnectAttempts++;
@@ -66,6 +68,14 @@ export class EditorConnection {
 
     this.reconnectAttempts = 0;
     this._startPing();
+  }
+
+  close(): void {
+    this.intentionalClose = true;
+    this.reconnectAttempts = this.maxReconnects;
+    this._cleanup(false);
+    this.ws?.close();
+    this.ws = null;
   }
 
   private _startPing(): void {
