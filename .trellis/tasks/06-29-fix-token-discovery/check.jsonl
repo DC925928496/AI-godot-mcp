@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend MCP server guidelines index for review"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Review connection failure messages and recovery hints"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Ensure build/test coverage for token discovery"}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Verify no stdout diagnostic leakage"}

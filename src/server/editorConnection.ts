@@ -3,6 +3,22 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 
+const AUTH_TOKEN_FILE = "ai_mcp_token";
+const LEGACY_TOKEN_DIR = "ai_godot_mcp";
+
+type AuthTokenCandidate = {
+  token: string;
+  tokenPath: string;
+  priority: number;
+  mtimeMs: number;
+};
+
+function getDefaultGodotUserDataRoot(): string {
+  return process.platform === "win32"
+    ? path.join(os.homedir(), "AppData", "Roaming", "Godot", "app_userdata")
+    : path.join(os.homedir(), ".local", "share", "godot", "app_userdata");
+}
+
 export class EditorConnection {
   private ws: WebSocket | null = null;
   private pending = new Map<string, { resolve: (value: unknown) => void; reject: (err: Error) => void; timeout: NodeJS.Timeout }>();
@@ -13,24 +29,69 @@ export class EditorConnection {
   private authToken: string = "";
   private intentionalClose = false;
 
-  constructor(private port = 6550) {}
+  constructor(private port = 6550, private godotUserDataRoot = getDefaultGodotUserDataRoot()) {}
 
   async connect(): Promise<void> {
-    const tokenDir = process.platform === "win32"
-      ? path.join(os.homedir(), "AppData", "Roaming", "Godot", "app_userdata", "ai_godot_mcp")
-      : path.join(os.homedir(), ".local", "share", "godot", "app_userdata", "ai_godot_mcp");
-    const tokenPath = path.join(tokenDir, "ai_mcp_token");
-
-    try {
-      this.authToken = (await fs.readFile(tokenPath, "utf-8")).trim();
-    } catch (err) {
-      throw new Error(`Failed to read auth token from ${tokenPath}. Ensure Godot editor with AI-godot-mcp plugin is running.`);
+    const candidates = await this._getAuthTokenCandidates();
+    if (candidates.length === 0) {
+      throw new Error(
+        `No AI-godot-mcp auth token files found under ${this.godotUserDataRoot}. ` +
+        "Ensure the Godot editor is running and the AI-godot-mcp plugin is enabled.",
+      );
     }
 
-    return this._connect();
+    const failures: string[] = [];
+    for (const candidate of candidates) {
+      try {
+        await this._connect(candidate.token);
+        return;
+      } catch (err) {
+        this._discardFailedSocket();
+        failures.push(`${candidate.tokenPath}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    throw new Error(
+      `Failed to authenticate with the Godot editor using ${candidates.length} token file(s). ` +
+      "Ensure only one Godot editor is listening on port " + this.port + " and the AI-godot-mcp plugin was restarted. " +
+      `Attempts: ${failures.join("; ")}`,
+    );
   }
 
-  private async _connect(): Promise<void> {
+  private async _getAuthTokenCandidates(): Promise<AuthTokenCandidate[]> {
+    const byPath = new Map<string, AuthTokenCandidate>();
+    const addCandidate = async (tokenPath: string, priority: number) => {
+      try {
+        const [stat, token] = await Promise.all([
+          fs.stat(tokenPath),
+          fs.readFile(tokenPath, "utf-8"),
+        ]);
+        const trimmedToken = token.trim();
+        if (trimmedToken.length > 0) {
+          byPath.set(tokenPath, { token: trimmedToken, tokenPath, priority, mtimeMs: stat.mtimeMs });
+        }
+      } catch {
+        // Missing or unreadable token candidates are skipped; connect() reports if none work.
+      }
+    };
+
+    await addCandidate(path.join(this.godotUserDataRoot, LEGACY_TOKEN_DIR, AUTH_TOKEN_FILE), 0);
+
+    try {
+      const entries = await fs.readdir(this.godotUserDataRoot, { withFileTypes: true });
+      await Promise.all(entries
+        .filter(entry => entry.isDirectory())
+        .map(entry => addCandidate(path.join(this.godotUserDataRoot, entry.name, AUTH_TOKEN_FILE), 1)));
+    } catch {
+      // The legacy path attempt above already covered the direct compatibility location.
+    }
+
+    return [...byPath.values()].sort((left, right) =>
+      left.priority - right.priority || right.mtimeMs - left.mtimeMs || left.tokenPath.localeCompare(right.tokenPath),
+    );
+  }
+
+  private async _connect(authToken: string = this.authToken): Promise<void> {
     this.intentionalClose = false;
     this.ws = new WebSocket(`ws://localhost:${this.port}`);
 
@@ -66,6 +127,8 @@ export class EditorConnection {
       this.ws!.once("error", fail);
     });
 
+    this.authToken = authToken;
+    await this.send("get_project_context");
     this.reconnectAttempts = 0;
     this._startPing();
   }
@@ -96,6 +159,17 @@ export class EditorConnection {
       cb.reject(new Error(isReconnecting ? "Connection lost, reconnecting..." : "Connection closed"));
     }
     this.pending.clear();
+  }
+
+  private _discardFailedSocket(): void {
+    const socket = this.ws;
+    this.intentionalClose = true;
+    this._cleanup(false);
+    if (socket) {
+      socket.removeAllListeners();
+      socket.close();
+    }
+    this.ws = null;
   }
 
   async send(method: string, params?: unknown, txnId?: string | null): Promise<unknown> {

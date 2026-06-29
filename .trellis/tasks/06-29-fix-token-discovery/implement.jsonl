@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend MCP server guidelines index for token discovery change"}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Keep connection logic in the existing backend server boundary"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Surface actionable editor connection/token errors"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"TypeScript strictness and test expectations"}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"MCP stdout must remain clean while handling token failures"}

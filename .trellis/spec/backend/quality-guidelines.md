@@ -106,6 +106,75 @@ conn.close();
 
 ---
 
+## Scenario: Editor Connection Token Discovery
+
+### 1. Scope / Trigger
+
+- Trigger: code opens a WebSocket connection from the Node MCP layer to the
+  Godot editor plugin and must authenticate with the plugin token file.
+
+### 2. Signatures
+
+- `new EditorConnection(port = 6550, godotUserDataRoot?)`
+- `EditorConnection.connect()`
+- `EditorConnection.send(method, params?, txnId?)`
+
+### 3. Contracts
+
+- Godot writes `ai_mcp_token` under `OS.get_user_data_dir()`, which is scoped to
+  the opened Godot project name, for example
+  `app_userdata/BattleDemo/ai_mcp_token`.
+- The Node side must not assume the project directory is always
+  `app_userdata/ai_godot_mcp`.
+- Candidate tokens must include the legacy fixed directory first for backward
+  compatibility, then other `app_userdata/*/ai_mcp_token` files.
+- `connect()` must authenticate a candidate token with a lightweight editor
+  request before treating the connection as ready.
+- Failed candidates must close their sockets intentionally so stale auth probes
+  do not schedule reconnect attempts.
+
+### 4. Validation & Error Matrix
+
+- no readable token files -> actionable error naming the Godot user data root
+  and advising that the editor/plugin must be running
+- stale token returns `UNAUTHORIZED` -> try the next candidate token
+- all candidates fail -> actionable error with one-editor/plugin-restart hints
+- successful probe -> `send()` uses the authenticated token for subsequent
+  requests
+
+### 5. Good / Base / Bad Cases
+
+- Good: `BattleDemo/ai_mcp_token` authenticates while
+  `ai_godot_mcp/ai_mcp_token` is stale.
+- Base: only `ai_godot_mcp/ai_mcp_token` exists and still authenticates.
+- Bad: reading a single hard-coded token path and reporting `WebSocket not
+  connected` even though the plugin is listening with a different project token.
+
+### 6. Tests Required
+
+- Unit regression where the fixed token is stale and a project token succeeds.
+- Unit regression where the fixed token remains the only valid token.
+- `npm run build`, `npm run lint`, and `npm test` after connection changes.
+- Manual smoke check against a running Godot editor when this behavior changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await fs.readFile(path.join(userDataRoot, "ai_godot_mcp", "ai_mcp_token"), "utf-8");
+```
+
+#### Correct
+
+```ts
+for (const candidate of await discoverTokenCandidates(userDataRoot)) {
+  await connectAndProbe(candidate);
+}
+```
+
+---
+
 ## Real examples in this repository
 
 - [src/index.ts](/E:/code/AI-godot-mcp/src/index.ts)
