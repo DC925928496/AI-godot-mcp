@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.3] - 2026-06-29
+
+### 修复
+
+- 修复 Godot 插件启动时 `websocket_server.gd` 的 Parse error。
+- 改用 Godot 4 官方兼容的 `TCPServer` + `WebSocketPeer.accept_stream()` WebSocket 服务端流程。
+- 修复 Godot 4.7 对 `class_name` 参数名和 `:=` 返回类型推断的解析兼容问题。
+- 新增 `EditorConnection.close()`，主动关闭连接时不再触发重连定时器，避免集成测试进程挂住。
+
+### 验证
+
+- 通过 Godot 4.7 `--check-only` 解析插件脚本。
+- 通过临时 Godot 工程的真实 WebSocket 集成验证，`test-p0.mjs` 为 `1 pass, 0 skipped`。
+
+---
+
 ## [1.0.0] - 2026-06-23
 
 ### 首个正式发布
@@ -64,4 +80,5 @@ AI-godot-mcp 是完全重写的 Godot MCP 服务，基于 EditorPlugin 架构。
 
 ---
 
+[1.0.3]: https://github.com/DC925928496/AI-godot-mcp/releases/tag/v1.0.3
 [1.0.0]: https://github.com/DC925928496/AI-godot-mcp/releases/tag/v1.0.0
