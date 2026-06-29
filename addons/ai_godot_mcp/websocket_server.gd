@@ -1,6 +1,6 @@
 extends Node
 
-var server := WebSocketPeer.new()
+var server := TCPServer.new()
 var clients: Array[WebSocketPeer] = []
 var port := 6550
 var undo_redo: EditorUndoRedoManager
@@ -22,9 +22,19 @@ var _runtime_log_last_error := ""
 func _ready() -> void:
 	auth_token = _generate_token()
 	_save_token_to_file()
-	server.create_server(port)
+	var listen_error := server.listen(port)
+	if listen_error != OK:
+		var message := "Failed to start WebSocket server on port " + str(port) + ": " + str(listen_error)
+		push_error(message)
+		_add_log("error", message, "editor")
 	undo_redo = EditorInterface.get_editor_undo_redo()
 	_setup_log_capture()
+
+func _exit_tree() -> void:
+	for client in clients:
+		client.close()
+	clients.clear()
+	server.stop()
 
 func _generate_token() -> String:
 	var crypto = Crypto.new()
@@ -40,15 +50,19 @@ func _save_token_to_file():
 		file.close()
 
 func _process(_delta: float) -> void:
-	server.poll()
+	while server.is_connection_available():
+		var tcp_peer := server.take_connection()
+		var peer := WebSocketPeer.new()
+		var accept_error := peer.accept_stream(tcp_peer)
+		if accept_error == OK:
+			clients.append(peer)
+		else:
+			var message := "Failed to accept WebSocket client: " + str(accept_error)
+			push_error(message)
+			_add_log("error", message, "editor")
+			tcp_peer.disconnect_from_host()
 
-	if server.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		while server.get_available_packet_count() > 0:
-			var peer := server.accept()
-			if peer:
-				clients.append(peer)
-
-	for client in clients:
+	for client in clients.duplicate():
 		client.poll()
 		if client.get_ready_state() == WebSocketPeer.STATE_OPEN:
 			while client.get_available_packet_count() > 0:
@@ -187,7 +201,7 @@ func rollback_txn() -> void:
 	current_txn.clear()
 
 func _validate_path(path: String) -> bool:
-	return path.begins_with("res://") and not ".." in path and not "\\" in path
+	return path.begins_with("res://") and not path.contains("..") and not path.contains("\\")
 
 func _validate_scene_path(path: String) -> bool:
 	return _validate_path(path) and path.ends_with(".tscn")
@@ -205,10 +219,10 @@ func _validate_identifier(value: String) -> bool:
 	return true
 
 func _validate_node_path(path: String) -> bool:
-	return path != "" and path == path.strip_edges() and not ".." in path and not "\\" in path
+	return path != "" and path == path.strip_edges() and not path.contains("..") and not path.contains("\\")
 
 func _validate_node_name(node_name: String) -> bool:
-	return node_name != "" and node_name == node_name.strip_edges() and not "/" in node_name and not "\\" in node_name and not ".." in node_name
+	return node_name != "" and node_name == node_name.strip_edges() and not node_name.contains("/") and not node_name.contains("\\") and not node_name.contains("..")
 
 func _get_autoload_path(setting_value) -> String:
 	var autoload_path = str(setting_value)
@@ -220,6 +234,12 @@ func _is_autoload_singleton(setting_value) -> bool:
 func _validate_class_name(class_name: String) -> bool:
 	var blacklist = ["EditorInterface", "ScriptEditor", "OS", "EditorPlugin", "EditorScript", "FileAccess", "DirAccess", "IP", "HTTPRequest", "Engine"]
 	return class_name not in blacklist
+
+func _object_has_property(target: Object, property_name: String) -> bool:
+	for property_info in target.get_property_list():
+		if str(property_info.name) == property_name:
+			return true
+	return false
 
 func _get_target_node(root: Node, node_path: String):
 	return root if node_path == "." else root.get_node_or_null(node_path)
@@ -455,7 +475,7 @@ func handle_set_property(req: Dictionary) -> Dictionary:
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
 
-	if not property in node:
+	if not _object_has_property(node, property):
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PROPERTY", "message": "Property not found: " + property, "failed_step": step}}
 
@@ -809,7 +829,7 @@ func handle_attach_script(req: Dictionary) -> Dictionary:
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SCRIPT", "message": "Failed to load script (syntax error or invalid format)", "suggestions": ["Fix script syntax errors before attaching"]}}
 
-	if not script is GDScript:
+	if not (script is GDScript):
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "INVALID_SCRIPT", "message": "Resource is not a GDScript: " + script.get_class()}}
 
