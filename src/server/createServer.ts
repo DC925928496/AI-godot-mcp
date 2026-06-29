@@ -7,6 +7,18 @@ export interface GodotEditorConnection {
   send(method: string, params?: unknown, txnId?: string | null): Promise<unknown>;
 }
 
+type ToolResult = {
+  content: Array<{ type: "text"; text: string }>;
+};
+
+type ToolRegistrar = {
+  registerTool(
+    name: string,
+    config: { description: string; inputSchema?: z.AnyZodObject },
+    callback: (args: unknown) => Promise<ToolResult>,
+  ): unknown;
+};
+
 const GodotIdentifierSchema = z.string().regex(
   /^[A-Za-z_][A-Za-z0-9_]*$/,
   "Must be a Godot-style identifier using letters, numbers, and underscores",
@@ -104,10 +116,35 @@ const DuplicateNodeSchema = z.object({
  */
 export function createServer(conn: GodotEditorConnection = new EditorConnection()): McpServer {
   const server = new McpServer({ name: "ai-godot-mcp", version: "0.1.0" });
+  const toolRegistrar = server as unknown as ToolRegistrar;
   let currentTxnId: string | null = null;
   let txnTimeout: NodeJS.Timeout | null = null;
 
   conn.connect().catch(() => {});
+
+  const createToolResult = (data: unknown) => ({
+    content: [{ type: "text" as const, text: JSON.stringify(data) }],
+  });
+
+  const registerEditorTool = (
+    name: string,
+    description: string,
+    callback: () => Promise<unknown>,
+  ) => {
+    toolRegistrar.registerTool(name, { description }, async () => createToolResult(await callback()));
+  };
+
+  const registerEditorToolWithInput = (
+    name: string,
+    description: string,
+    inputSchema: z.AnyZodObject,
+    callback: (params: unknown) => Promise<unknown>,
+  ) => {
+    toolRegistrar.registerTool(name, { description, inputSchema }, async (args: unknown) => {
+      const params = inputSchema.parse(args);
+      return createToolResult(await callback(params));
+    });
+  };
 
   const clearTxnTimeout = () => {
     if (txnTimeout) {
@@ -126,170 +163,111 @@ export function createServer(conn: GodotEditorConnection = new EditorConnection(
     }, 30000);
   };
 
-  server.tool("get_project_context", "Get Godot project context", async () => {
-    const data = await conn.send("get_project_context");
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorTool("get_project_context", "Get Godot project context", () => conn.send("get_project_context"));
 
-  server.tool("get_scene_tree", "Get current scene node tree", async () => {
-    const data = await conn.send("get_scene_tree");
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorTool("get_scene_tree", "Get current scene node tree", () => conn.send("get_scene_tree"));
 
-  server.tool("get_editor_logs", "Get editor logs with filters", async (args: unknown) => {
-    const params = GetEditorLogsSchema.parse(args);
-    const data = await conn.send("get_editor_logs", params);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("get_editor_logs", "Get editor logs with filters", GetEditorLogsSchema, params =>
+    conn.send("get_editor_logs", params),
+  );
 
-  server.tool("open_scene", "Open a Godot scene by res:// path", async (args: unknown) => {
-    const params = OpenSceneSchema.parse(args);
-    const data = await conn.send("open_scene", params);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("open_scene", "Open a Godot scene by res:// path", OpenSceneSchema, params =>
+    conn.send("open_scene", params),
+  );
 
-  server.tool("instantiate_scene", "Instantiate a PackedScene into the current scene", async (args: unknown) => {
-    const params = InstantiateSceneSchema.parse(args);
-    const data = await conn.send("instantiate_scene", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("instantiate_scene", "Instantiate a PackedScene into the current scene", InstantiateSceneSchema, params =>
+    conn.send("instantiate_scene", params, currentTxnId),
+  );
 
-  server.tool("connect_signal", "Connect a signal between two nodes", async (args: unknown) => {
-    const params = ConnectSignalSchema.parse(args);
-    const data = await conn.send("connect_signal", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("connect_signal", "Connect a signal between two nodes", ConnectSignalSchema, params =>
+    conn.send("connect_signal", params, currentTxnId),
+  );
 
-  server.tool("disconnect_signal", "Disconnect a signal between two nodes", async (args: unknown) => {
-    const params = DisconnectSignalSchema.parse(args);
-    const data = await conn.send("disconnect_signal", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("disconnect_signal", "Disconnect a signal between two nodes", DisconnectSignalSchema, params =>
+    conn.send("disconnect_signal", params, currentTxnId),
+  );
 
-  server.tool("get_input_map", "List project input actions", async () => {
-    const data = await conn.send("get_input_map");
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorTool("get_input_map", "List project input actions", () => conn.send("get_input_map"));
 
-  server.tool("bind_input_key", "Create or extend a keyboard input binding", async (args: unknown) => {
-    const params = BindInputKeySchema.parse(args);
-    const data = await conn.send("bind_input_key", params);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("bind_input_key", "Create or extend a keyboard input binding", BindInputKeySchema, params =>
+    conn.send("bind_input_key", params),
+  );
 
-  server.tool("begin_ai_action", "Begin a transaction for multiple operations", async (args: unknown) => {
-    const params = BeginActionSchema.parse(args);
+  registerEditorToolWithInput("begin_ai_action", "Begin a transaction for multiple operations", BeginActionSchema, async params => {
     currentTxnId = `txn_${Date.now()}`;
     startTxnTimeout();
-    const data = await conn.send("begin_ai_action", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
+    return conn.send("begin_ai_action", params, currentTxnId);
   });
 
-  server.tool("end_ai_action", "Commit the current transaction", async () => {
+  registerEditorTool("end_ai_action", "Commit the current transaction", async () => {
     clearTxnTimeout();
     const data = await conn.send("end_ai_action", {}, currentTxnId);
     currentTxnId = null;
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
+    return data;
   });
 
-  server.tool("add_node", "Add a node to the scene tree", async (args: unknown) => {
-    const params = AddNodeSchema.parse(args);
-    const data = await conn.send("add_node", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("add_node", "Add a node to the scene tree", AddNodeSchema, params =>
+    conn.send("add_node", params, currentTxnId),
+  );
 
-  server.tool("set_node_property", "Set a property on a node", async (args: unknown) => {
-    const params = SetPropertySchema.parse(args);
-    const data = await conn.send("set_node_property", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("set_node_property", "Set a property on a node", SetPropertySchema, params =>
+    conn.send("set_node_property", params, currentTxnId),
+  );
 
-  server.tool("delete_node", "Delete a node from the scene", async (args: unknown) => {
-    const params = DeleteNodeSchema.parse(args);
-    const data = await conn.send("delete_node", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("delete_node", "Delete a node from the scene", DeleteNodeSchema, params =>
+    conn.send("delete_node", params, currentTxnId),
+  );
 
-  server.tool("create_scene", "Create a new scene file", async (args: unknown) => {
-    const params = CreateSceneSchema.parse(args);
-    const data = await conn.send("create_scene", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("create_scene", "Create a new scene file", CreateSceneSchema, params =>
+    conn.send("create_scene", params, currentTxnId),
+  );
 
-  server.tool("load_resource", "Load a resource reference", async (args: unknown) => {
-    const params = LoadResourceSchema.parse(args);
-    const data = await conn.send("load_resource", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("load_resource", "Load a resource reference", LoadResourceSchema, params =>
+    conn.send("load_resource", params, currentTxnId),
+  );
 
-  server.tool("save_current_scene", "Save the current scene", async () => {
-    const data = await conn.send("save_current_scene", {}, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorTool("save_current_scene", "Save the current scene", () =>
+    conn.send("save_current_scene", {}, currentTxnId),
+  );
 
-  server.tool("attach_script", "Attach a GDScript to a node", async (args: unknown) => {
-    const params = AttachScriptSchema.parse(args);
-    const data = await conn.send("attach_script", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("attach_script", "Attach a GDScript to a node", AttachScriptSchema, params =>
+    conn.send("attach_script", params, currentTxnId),
+  );
 
-  server.tool("get_resource_uid", "Get resource UID and type", async (args: unknown) => {
-    const params = GetResourceUidSchema.parse(args);
-    const data = await conn.send("get_resource_uid", params);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("get_resource_uid", "Get resource UID and type", GetResourceUidSchema, params =>
+    conn.send("get_resource_uid", params),
+  );
 
-  server.tool("play_current_scene", "Run current scene (F6)", async () => {
-    const data = await conn.send("play_current_scene");
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorTool("play_current_scene", "Run current scene (F6)", () => conn.send("play_current_scene"));
 
-  server.tool("stop_running_scene", "Stop running scene (F8)", async () => {
-    const data = await conn.send("stop_running_scene");
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorTool("stop_running_scene", "Stop running scene (F8)", () => conn.send("stop_running_scene"));
 
   // Batch 2: Project and structure management
-  server.tool("list_autoloads", "List project autoloads", async () => {
-    const data = await conn.send("list_autoloads");
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorTool("list_autoloads", "List project autoloads", () => conn.send("list_autoloads"));
 
-  server.tool("set_autoload", "Set or update an autoload", async (args: unknown) => {
-    const params = SetAutoloadSchema.parse(args);
-    const data = await conn.send("set_autoload", params);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("set_autoload", "Set or update an autoload", SetAutoloadSchema, params =>
+    conn.send("set_autoload", params),
+  );
 
-  server.tool("remove_autoload", "Remove an autoload", async (args: unknown) => {
-    const params = RemoveAutoloadSchema.parse(args);
-    const data = await conn.send("remove_autoload", params);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("remove_autoload", "Remove an autoload", RemoveAutoloadSchema, params =>
+    conn.send("remove_autoload", params),
+  );
 
-  server.tool("add_node_to_group", "Add a node to a group", async (args: unknown) => {
-    const params = AddNodeToGroupSchema.parse(args);
-    const data = await conn.send("add_node_to_group", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("add_node_to_group", "Add a node to a group", AddNodeToGroupSchema, params =>
+    conn.send("add_node_to_group", params, currentTxnId),
+  );
 
-  server.tool("remove_node_from_group", "Remove a node from a group", async (args: unknown) => {
-    const params = RemoveNodeFromGroupSchema.parse(args);
-    const data = await conn.send("remove_node_from_group", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("remove_node_from_group", "Remove a node from a group", RemoveNodeFromGroupSchema, params =>
+    conn.send("remove_node_from_group", params, currentTxnId),
+  );
 
-  server.tool("reparent_node", "Reparent a node to a new parent", async (args: unknown) => {
-    const params = ReparentNodeSchema.parse(args);
-    const data = await conn.send("reparent_node", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("reparent_node", "Reparent a node to a new parent", ReparentNodeSchema, params =>
+    conn.send("reparent_node", params, currentTxnId),
+  );
 
-  server.tool("duplicate_node", "Duplicate a node", async (args: unknown) => {
-    const params = DuplicateNodeSchema.parse(args);
-    const data = await conn.send("duplicate_node", params, currentTxnId);
-    return { content: [{ type: "text", text: JSON.stringify(data) }] };
-  });
+  registerEditorToolWithInput("duplicate_node", "Duplicate a node", DuplicateNodeSchema, params =>
+    conn.send("duplicate_node", params, currentTxnId),
+  );
 
   return server;
 }

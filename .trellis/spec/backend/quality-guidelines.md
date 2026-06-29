@@ -175,6 +175,87 @@ for (const candidate of await discoverTokenCandidates(userDataRoot)) {
 
 ---
 
+## Scenario: MCP Tool Input Schema Registration
+
+### 1. Scope / Trigger
+
+- Trigger: Node MCP code registers a tool that accepts caller arguments and
+  forwards those arguments to the Godot editor plugin.
+
+### 2. Signatures
+
+- `McpServer.registerTool(name, { description, inputSchema }, handler)`
+- `EditorConnection.send(method, params?, txnId?)`
+- WebSocket request payload:
+  `{ id, method, params, txn_id?, auth_token }`
+
+### 3. Contracts
+
+- Every parameterized MCP tool must pass an `inputSchema` during tool
+  registration, not only parse arguments inside the handler.
+- `tools/list` must expose every caller-supplied field through JSON Schema so
+  agents know which arguments to send.
+- Tool handlers must parse the same schema before calling
+  `EditorConnection.send()`.
+- The Godot WebSocket protocol continues to receive arguments under the
+  top-level `params` field.
+- Zero-argument tools may omit `inputSchema` and send no params, or explicitly
+  send `{}` when the plugin method expects an empty params object.
+
+### 4. Validation & Error Matrix
+
+- missing `inputSchema` for a parameterized tool -> `tools/list` shows an empty
+  object schema and agents call the handler with `undefined`
+- malformed arguments -> MCP/handler schema validation fails before
+  `EditorConnection.send()`
+- valid arguments -> handler forwards the parsed object as `params`
+- transaction-aware tool -> handler forwards the active `txn_id` unchanged
+
+### 5. Good / Base / Bad Cases
+
+- Good: `create_scene` appears in `tools/list` with `scene_name` required and
+  forwards `{ scene_name, root_node_type? }` as WebSocket `params`.
+- Base: `get_project_context` has no `inputSchema` and sends no params.
+- Bad: `server.tool("create_scene", "Create a new scene file", async args =>
+  CreateSceneSchema.parse(args))` validates only inside the handler, leaving
+  the MCP tool definition empty for agents.
+
+### 6. Tests Required
+
+- Unit regression asserting every parameterized registered tool has
+  `_registeredTools[name].inputSchema`.
+- MCP client/server regression using `tools/list` to assert the generated JSON
+  Schema includes required fields such as `create_scene.scene_name`.
+- Handler regression proving valid arguments are forwarded to
+  `EditorConnection.send(method, params, txnId)`.
+- `npm run build`, `npm run lint`, and `npm test` after registration changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+server.tool("create_scene", "Create a new scene file", async (args: unknown) => {
+  const params = CreateSceneSchema.parse(args);
+  return conn.send("create_scene", params, currentTxnId);
+});
+```
+
+#### Correct
+
+```ts
+server.registerTool(
+  "create_scene",
+  { description: "Create a new scene file", inputSchema: CreateSceneSchema },
+  async (args: unknown) => {
+    const params = CreateSceneSchema.parse(args);
+    return conn.send("create_scene", params, currentTxnId);
+  },
+);
+```
+
+---
+
 ## Real examples in this repository
 
 - [src/index.ts](/E:/code/AI-godot-mcp/src/index.ts)

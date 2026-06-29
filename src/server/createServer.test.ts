@@ -1,5 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { CallToolResultSchema, ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createServer, type GodotEditorConnection } from "./createServer.js";
 
 type ToolCall = {
@@ -33,6 +36,54 @@ const callTool = async (server: any, toolName: string, args?: unknown) => {
 
 const parseToolData = (result: any) => JSON.parse(result.content[0].text);
 
+const withClient = async <Result>(server: any, callback: (client: Client) => Promise<Result>) => {
+  const client = new Client({ name: "create-server-test", version: "0.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+  await Promise.all([
+    server.connect(serverTransport),
+    client.connect(clientTransport),
+  ]);
+  try {
+    return await callback(client);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+};
+
+const listTools = (server: any) =>
+  withClient(server, client => client.request({ method: "tools/list", params: {} }, ListToolsResultSchema));
+
+const callToolOverMcp = (server: any, toolName: string, args: Record<string, unknown>) =>
+  withClient(server, client => client.request({
+    method: "tools/call",
+    params: { name: toolName, arguments: args },
+  }, CallToolResultSchema));
+
+const requiredInputToolNames = [
+  "get_editor_logs",
+  "open_scene",
+  "instantiate_scene",
+  "connect_signal",
+  "disconnect_signal",
+  "bind_input_key",
+  "begin_ai_action",
+  "add_node",
+  "set_node_property",
+  "delete_node",
+  "create_scene",
+  "load_resource",
+  "attach_script",
+  "get_resource_uid",
+  "set_autoload",
+  "remove_autoload",
+  "add_node_to_group",
+  "remove_node_from_group",
+  "reparent_node",
+  "duplicate_node",
+];
+
 describe("Phase 2 Implementation", () => {
   it("createServer returns an MCP server instance", () => {
     const { server } = createTestServer();
@@ -62,6 +113,29 @@ describe("Phase 2 Implementation", () => {
     assert.ok(toolNames.includes("bind_input_key"));
   });
 
+  it("registers MCP input schemas for all parameterized tools", () => {
+    const { server } = createTestServer();
+
+    for (const toolName of requiredInputToolNames) {
+      assert.ok(server._registeredTools[toolName]?.inputSchema, `Expected input schema for ${toolName}`);
+    }
+    assert.ok(server._registeredTools.create_scene.inputSchema.shape.scene_name);
+    assert.ok(server._registeredTools.create_scene.inputSchema.shape.root_node_type);
+    assert.ok(server._registeredTools.add_node.inputSchema.shape.node_type);
+  });
+
+  it("exposes create_scene arguments in the MCP tools/list schema", async () => {
+    const { server } = createTestServer();
+
+    const toolsResult = await listTools(server);
+    const createSceneTool = toolsResult.tools.find(tool => tool.name === "create_scene");
+
+    assert.ok(createSceneTool, "Expected create_scene in tools/list");
+    assert.ok(createSceneTool.inputSchema.properties?.scene_name);
+    assert.ok(createSceneTool.inputSchema.properties?.root_node_type);
+    assert.deepStrictEqual(createSceneTool.inputSchema.required, ["scene_name"]);
+  });
+
   it("sends valid Batch 1 calls to the Godot connection", async () => {
     const { conn, server } = createTestServer();
 
@@ -85,6 +159,24 @@ describe("Phase 2 Implementation", () => {
     assert.strictEqual(openResult.method, "open_scene");
     assert.strictEqual(bindResult.method, "bind_input_key");
     assert.strictEqual(inputMapResult.method, "get_input_map");
+  });
+
+  it("forwards create_scene arguments through params", async () => {
+    const { conn, server } = createTestServer();
+
+    const result = parseToolData(await callToolOverMcp(server, "create_scene", {
+      scene_name: "scenes/Arena.tscn",
+      root_node_type: "Node2D",
+    }));
+
+    assert.deepStrictEqual(conn.calls, [
+      {
+        method: "create_scene",
+        params: { scene_name: "scenes/Arena.tscn", root_node_type: "Node2D" },
+        txnId: null,
+      },
+    ]);
+    assert.deepStrictEqual(result.params, { scene_name: "scenes/Arena.tscn", root_node_type: "Node2D" });
   });
 
   it("passes the active transaction id to Batch 1 scene and signal write tools", async () => {
