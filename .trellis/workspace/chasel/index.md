@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 10
-- **Last Active**: 2026-06-23
+- **Total Sessions**: 11
+- **Last Active**: 2026-06-29
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~339 | Active |
+| `journal-1.md` | ~372 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-06-29 | Fix Godot plugin WebSocket startup | `7be7f16` | `main` |
 | 10 | 2026-06-23 | Runtime log diagnostics loop | `f8a5f2e` | `main` |
 | 9 | 2026-06-23 | 修复 README Node.js 版本不一致 | `868d709` | `main` |
 | 8 | 2026-06-23 | 修复 P2 级问题：CHANGELOG/测试/CLI/Dock | `c466da0`, `a21a343`, `7501676` | `main` |

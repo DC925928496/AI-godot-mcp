@@ -337,3 +337,36 @@ Added file-based runtime log diagnostics, created readiness and P0 task PRDs, up
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: Fix Godot plugin WebSocket startup
+
+**Date**: 2026-06-29
+**Task**: Fix Godot plugin WebSocket startup
+**Branch**: `main`
+
+### Summary
+
+Fixed plugin startup parse failure by switching WebSocket listener to Godot 4 TCPServer accept_stream flow, removed ambiguous GDScript parser forms, added source regressions, and documented the transport contract.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7be7f16` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
