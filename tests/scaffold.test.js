@@ -19,6 +19,14 @@ test("scaffold keeps plugin entry files in place", () => {
   );
 });
 
+test("published CLI defaults to MCP server mode when no subcommand is provided", async () => {
+  const { shouldStartMcpServer } = await import("../build/cli/mode.js");
+
+  assert.equal(shouldStartMcpServer(["node", "cli.js"]), true);
+  assert.equal(shouldStartMcpServer(["node", "cli.js", "install"]), false);
+  assert.equal(shouldStartMcpServer(["node", "cli.js", "--help"]), false);
+});
+
 test("plugin WebSocket server uses Godot 4 TCP accept_stream flow", () => {
   const serverScript = readFileSync(
     join(projectRoot, "addons", "ai_godot_mcp", "websocket_server.gd"),

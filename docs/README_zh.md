@@ -28,12 +28,12 @@ AI-godot-mcp 的目标不只是做一个 Godot 编辑器自动化桥，而是让
 
 ## 功能特性
 
-### 🔍 项目检查
+### 项目检查
 - **`get_project_context`** - 获取 Godot 版本、项目名称、插件状态
 - **`get_scene_tree`** - 获取当前场景节点树（支持深度限制和类型过滤）
 - **`get_editor_logs`** - 获取编辑器输出面板日志（支持时间戳和级别过滤）
 
-### 🎨 场景编辑
+### 场景编辑
 - **`create_scene`** - 创建新场景文件
 - **`add_node`** - 向场景树添加节点，自动解析父节点
 - **`set_node_property`** - 修改节点属性，带类型验证
@@ -41,18 +41,18 @@ AI-godot-mcp 的目标不只是做一个 Godot 编辑器自动化桥，而是让
 - **`load_resource`** - 加载和引用外部资源
 - **`save_current_scene`** - 保存当前场景到磁盘
 
-### ⚡ 事务管理
+### 事务管理
 - **`begin_ai_action` / `end_ai_action`** - 原子批量操作，集成原生 UndoRedo
 
-### 📝 脚本管理
+### 脚本管理
 - **`attach_script`** - 附加 GDScript 到节点，自动生成模板
-- **`get_resource_uid`** - 获取资源 UID 用于跨引用验证
+- **`get_resource_uid`** - 获取资源 UID 用于交叉引用验证
 
-### ▶️ 场景执行
+### 场景执行
 - **`play_current_scene`** - 在编辑器中运行当前场景（F6）
 - **`stop_running_scene`** - 停止运行场景（F8）
 
-### 🛠️ 命令行工具
+### 命令行工具
 - **`install`** - 部署插件到 Godot 项目，带版本验证
 - **`uninstall`** - 从项目中干净移除插件
 - **`version`** - 显示版本和兼容性信息
@@ -64,20 +64,15 @@ AI-godot-mcp 的目标不只是做一个 Godot 编辑器自动化桥，而是让
 
 ## 快速开始
 
-### 安装
+先选择一种 MCP Server 启动方式，再把 Godot 编辑器插件加载到需要让智能体操作的项目里。
+
+### 方式一：npx
 
 ```bash
-npx ai-godot-mcp install <godot-project-path>
+npx ai-godot-mcp install "<godot-project-path>"
 ```
 
-### 启用插件
-
-在 Godot 编辑器中：
-1. 打开项目
-2. **项目 → 项目设置 → 插件**
-3. 启用 **"AI Godot MCP"**
-
-### 配置 MCP 客户端
+适合直接从 npm 拉取并按需运行发布包。MCP 客户端通过 `npx ai-godot-mcp` 启动 stdio server。
 
 #### Claude Code
 
@@ -85,12 +80,9 @@ npx ai-godot-mcp install <godot-project-path>
 claude mcp add ai-godot-mcp -- npx ai-godot-mcp
 ```
 
-重启 Claude Code，工具即可使用。
+#### 其他 MCP 客户端
 
-<details>
-<summary><strong>其他 MCP 客户端</strong></summary>
-
-对于任意 MCP 兼容客户端，使用以下配置：
+使用以下 server 配置：
 
 ```json
 {
@@ -103,7 +95,75 @@ claude mcp add ai-godot-mcp -- npx ai-godot-mcp
 }
 ```
 
-</details>
+### 方式二：GitHub Releases
+
+适合已经下载发布产物，不希望每次通过 npm 在线拉包的场景。
+
+```bash
+npm install -g "./ai-godot-mcp-<version>.tgz"
+ai-godot-mcp install "<godot-project-path>"
+```
+
+然后把 MCP 客户端指向全局安装后的命令：
+
+```bash
+claude mcp add ai-godot-mcp -- ai-godot-mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "ai-godot-mcp": {
+      "command": "ai-godot-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+如果 Release 里还有 `plugin-only.zip`，它只用于手动安装 Godot addon，不会启动 Node MCP Server；MCP Server 仍需使用上面或下面的启动方式之一。
+
+### 方式三：源码构建
+
+适合本地开发本项目，或验证尚未发布的改动。
+
+```bash
+git clone https://github.com/DC925928496/AI-godot-mcp.git
+cd AI-godot-mcp
+npm install
+npm run build
+node build/cli/index.js install "<godot-project-path>"
+```
+
+然后把 MCP 客户端指向构建后的 server 入口：
+
+```bash
+claude mcp add ai-godot-mcp -- node "E:/code/AI-godot-mcp/build/index.js"
+```
+
+```json
+{
+  "mcpServers": {
+    "ai-godot-mcp": {
+      "command": "node",
+      "args": ["E:/code/AI-godot-mcp/build/index.js"]
+    }
+  }
+}
+```
+
+修改 TypeScript 源码后，需要重新执行 `npm run build`。
+
+### 加载 Godot 插件
+
+安装或复制 addon 后：
+
+1. 只打开一个目标 Godot 项目。
+2. 进入 **项目 → 项目设置 → 插件**。
+3. 启用 **"AI Godot MCP"**。
+4. 重启或重新加载 MCP 客户端，让客户端发现 server tools。
+
+同一时间只能有一个 Godot 项目加载该插件。插件会监听本机 `6550` 端口；如果两个编辑器同时加载插件，其中一个编辑器可能无法绑定端口，或者 MCP Server 连接到错误项目。切换项目时，先禁用当前项目插件或关闭当前 Godot 编辑器，再在下一个项目中启用插件。
 
 ## 架构
 
@@ -115,10 +175,18 @@ AI-godot-mcp 使用 **WebSocket 通信架构**：
 
 ## 命令行指令
 
+### MCP server
+
+```bash
+npx ai-godot-mcp
+```
+
+通过 stdio 启动 MCP Server。通常由 MCP 客户端自动运行该命令。Release 包全局安装后使用 `ai-godot-mcp`；源码构建后使用 `npm run build` 生成的 `node build/index.js`。
+
 ### install
 
 ```bash
-npx ai-godot-mcp install <project-path>
+npx ai-godot-mcp install "<project-path>"
 ```
 
 部署插件到 Godot 项目，验证版本兼容性（仅支持 Godot 4.6.x）。
@@ -126,7 +194,7 @@ npx ai-godot-mcp install <project-path>
 ### uninstall
 
 ```bash
-npx ai-godot-mcp uninstall <project-path>
+npx ai-godot-mcp uninstall "<project-path>"
 ```
 
 从项目中移除 `addons/ai_godot_mcp/` 目录。
@@ -138,22 +206,6 @@ npx ai-godot-mcp version
 ```
 
 显示版本信息和支持的 Godot 版本。
-
-## 从源码构建
-
-<details>
-<summary>展开查看</summary>
-
-```bash
-git clone https://github.com/DC925928496/AI-godot-mcp.git
-cd AI-godot-mcp
-npm install
-npm run build
-```
-
-然后在 MCP 客户端配置中指向 `build/index.js` 而不是使用 `npx`。
-
-</details>
 
 ## 故障排查
 

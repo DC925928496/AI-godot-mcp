@@ -66,20 +66,17 @@ The repository already has the low-level MCP bridge. The next direction is to ma
 
 ## Quick Start
 
-### Installation
+Choose one MCP server startup method, then load the Godot editor plugin for the
+project you want the agent to operate on.
+
+### Option 1: npx
 
 ```bash
-npx ai-godot-mcp install <godot-project-path>
+npx ai-godot-mcp install "<godot-project-path>"
 ```
 
-### Enable Plugin
-
-In Godot Editor:
-1. Open your project
-2. Navigate to **Project → Project Settings → Plugins**
-3. Enable **"AI Godot MCP"**
-
-### Configure MCP Client
+Use this when you want npm to download and run the published package on demand.
+The MCP client starts the stdio server with `npx ai-godot-mcp`.
 
 #### Claude Code
 
@@ -87,12 +84,9 @@ In Godot Editor:
 claude mcp add ai-godot-mcp -- npx ai-godot-mcp
 ```
 
-Restart Claude Code and the tools will be available.
+#### Other MCP Clients
 
-<details>
-<summary><strong>Other MCP Clients</strong></summary>
-
-For any MCP-compatible client, use this configuration:
+Use this server configuration:
 
 ```json
 {
@@ -105,7 +99,82 @@ For any MCP-compatible client, use this configuration:
 }
 ```
 
-</details>
+### Option 2: GitHub Releases
+
+Use this when you downloaded the packaged release artifact instead of pulling
+from npm at runtime.
+
+```bash
+npm install -g "./ai-godot-mcp-<version>.tgz"
+ai-godot-mcp install "<godot-project-path>"
+```
+
+Then point your MCP client at the installed command:
+
+```bash
+claude mcp add ai-godot-mcp -- ai-godot-mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "ai-godot-mcp": {
+      "command": "ai-godot-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+If a release also provides `plugin-only.zip`, that file only installs the Godot
+addon manually. It does not start the Node MCP server; use one of the server
+startup methods above or below.
+
+### Option 3: Build from Source
+
+Use this when developing the project locally or testing unpublished changes.
+
+```bash
+git clone https://github.com/DC925928496/AI-godot-mcp.git
+cd AI-godot-mcp
+npm install
+npm run build
+node build/cli/index.js install "<godot-project-path>"
+```
+
+Then point your MCP client to the built server entrypoint:
+
+```bash
+claude mcp add ai-godot-mcp -- node "E:/code/AI-godot-mcp/build/index.js"
+```
+
+```json
+{
+  "mcpServers": {
+    "ai-godot-mcp": {
+      "command": "node",
+      "args": ["E:/code/AI-godot-mcp/build/index.js"]
+    }
+  }
+}
+```
+
+Re-run `npm run build` after changing TypeScript source.
+
+### Load the Godot Plugin
+
+After installing or copying the addon:
+
+1. Open exactly one target Godot project.
+2. Navigate to **Project → Project Settings → Plugins**.
+3. Enable **"AI Godot MCP"**.
+4. Restart or reload your MCP client so it discovers the server tools.
+
+Only one Godot project should load the plugin at a time. The plugin listens on
+local port `6550`; if two editors load it, one editor may fail to bind the port
+or the MCP server may connect to the wrong project. Before switching projects,
+disable the plugin or close the current Godot editor, then enable it in the next
+project.
 
 ## Architecture
 
@@ -117,10 +186,20 @@ AI-godot-mcp uses a **WebSocket communication architecture**:
 
 ## CLI Commands
 
+### MCP server
+
+```bash
+npx ai-godot-mcp
+```
+
+Starts the MCP server over stdio. MCP clients usually run this command for you.
+For a release package installed globally, use `ai-godot-mcp`. For a source
+checkout, use `node build/index.js` after `npm run build`.
+
 ### install
 
 ```bash
-npx ai-godot-mcp install <project-path>
+npx ai-godot-mcp install "<project-path>"
 ```
 
 Deploy plugin to Godot project with version compatibility validation (Godot 4.6.x only).
@@ -128,7 +207,7 @@ Deploy plugin to Godot project with version compatibility validation (Godot 4.6.
 ### uninstall
 
 ```bash
-npx ai-godot-mcp uninstall <project-path>
+npx ai-godot-mcp uninstall "<project-path>"
 ```
 
 Remove `addons/ai_godot_mcp/` directory from project.
@@ -140,22 +219,6 @@ npx ai-godot-mcp version
 ```
 
 Display version information and supported Godot versions.
-
-## Building from Source
-
-<details>
-<summary>Expand to view</summary>
-
-```bash
-git clone https://github.com/DC925928496/AI-godot-mcp.git
-cd AI-godot-mcp
-npm install
-npm run build
-```
-
-Then point your MCP client configuration to `build/index.js` instead of using `npx`.
-
-</details>
 
 ## Troubleshooting
 

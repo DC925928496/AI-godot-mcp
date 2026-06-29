@@ -1,7 +1,9 @@
 import { program } from 'commander';
+import { startServer } from '../server/startServer.js';
 import { install } from './install.js';
 import { uninstall } from './uninstall.js';
 import { version } from './version.js';
+import { shouldStartMcpServer } from './mode.js';
 
 program
   .name('ai-godot-mcp')
@@ -22,4 +24,8 @@ program
   .description('Show version info')
   .action(version);
 
-program.parse();
+if (shouldStartMcpServer(process.argv)) {
+  await startServer();
+} else {
+  program.parse();
+}
