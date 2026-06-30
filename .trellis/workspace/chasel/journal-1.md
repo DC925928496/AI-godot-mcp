@@ -403,3 +403,36 @@ Implemented project-scoped Godot auth token discovery with legacy fallback, auth
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: Document product vision and roadmap
+
+**Date**: 2026-06-30
+**Task**: Document product vision and roadmap
+**Branch**: `main`
+
+### Summary
+
+Verified the dual README product vision and next-direction roadmap task, confirmed the internal roadmap research artifact, ran build/lint/test, and archived the completed Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ec1eb5c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

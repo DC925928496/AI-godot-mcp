@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
+- **Total Sessions**: 13
 - **Last Active**: 2026-06-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~405 | Active |
+| `journal-1.md` | ~438 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-06-30 | Document product vision and roadmap | `ec1eb5c` | `main` |
 | 12 | 2026-06-30 | Fix Godot MCP token discovery | `a050d4f` | `main` |
 | 11 | 2026-06-29 | Fix Godot plugin WebSocket startup | `7be7f16` | `main` |
 | 10 | 2026-06-23 | Runtime log diagnostics loop | `f8a5f2e` | `main` |
