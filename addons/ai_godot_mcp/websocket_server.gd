@@ -235,11 +235,91 @@ func _validate_class_name(type_name: String) -> bool:
 	var blacklist = ["EditorInterface", "ScriptEditor", "OS", "EditorPlugin", "EditorScript", "FileAccess", "DirAccess", "IP", "HTTPRequest", "Engine"]
 	return type_name not in blacklist
 
-func _object_has_property(target: Object, property_name: String) -> bool:
+func _get_property_info(target: Object, property_name: String) -> Dictionary:
 	for property_info in target.get_property_list():
 		if str(property_info.name) == property_name:
-			return true
-	return false
+			return property_info
+	return {}
+
+func _object_has_property(target: Object, property_name: String) -> bool:
+	return not _get_property_info(target, property_name).is_empty()
+
+func _conversion_result(ok: bool, converted_value = null, message: String = "") -> Dictionary:
+	return {"ok": ok, "value": converted_value, "message": message}
+
+func _is_number(value) -> bool:
+	var value_type = typeof(value)
+	return value_type == TYPE_INT or value_type == TYPE_FLOAT
+
+func _convert_json_to_vector2(value) -> Dictionary:
+	if value is Vector2:
+		return _conversion_result(true, value)
+
+	if value is Dictionary:
+		if _is_number(value.get("x")) and _is_number(value.get("y")):
+			return _conversion_result(true, Vector2(float(value.get("x")), float(value.get("y"))))
+		return _conversion_result(false, null, "Expected Vector2 object with numeric x and y fields")
+
+	if value is Array:
+		if value.size() == 2 and _is_number(value[0]) and _is_number(value[1]):
+			return _conversion_result(true, Vector2(float(value[0]), float(value[1])))
+		return _conversion_result(false, null, "Expected Vector2 array as [x, y]")
+
+	return _conversion_result(false, null, "Expected Vector2 as {x, y} or [x, y]")
+
+func _convert_json_to_packed_vector2_array(value) -> Dictionary:
+	if value is PackedVector2Array:
+		return _conversion_result(true, value)
+
+	if not (value is Array):
+		return _conversion_result(false, null, "Expected PackedVector2Array as an array of {x, y} or [x, y] points")
+
+	var converted_points = PackedVector2Array()
+	for index in range(value.size()):
+		var converted_point = _convert_json_to_vector2(value[index])
+		if not bool(converted_point.get("ok", false)):
+			return _conversion_result(false, null, "Invalid Vector2 at index " + str(index) + ": " + str(converted_point.get("message", "")))
+		converted_points.append(converted_point.get("value"))
+
+	return _conversion_result(true, converted_points)
+
+func _convert_json_to_color(value) -> Dictionary:
+	if value is Color:
+		return _conversion_result(true, value)
+
+	if value is Dictionary:
+		if not (_is_number(value.get("r")) and _is_number(value.get("g")) and _is_number(value.get("b"))):
+			return _conversion_result(false, null, "Expected Color object with numeric r, g, and b fields")
+		var alpha_value = value.get("a", 1.0)
+		if not _is_number(alpha_value):
+			return _conversion_result(false, null, "Expected Color alpha field to be numeric")
+		return _conversion_result(true, Color(float(value.get("r")), float(value.get("g")), float(value.get("b")), float(alpha_value)))
+
+	if value is Array:
+		if not (value.size() == 3 or value.size() == 4):
+			return _conversion_result(false, null, "Expected Color array as [r, g, b] or [r, g, b, a]")
+		if not (_is_number(value[0]) and _is_number(value[1]) and _is_number(value[2])):
+			return _conversion_result(false, null, "Expected Color array channels to be numeric")
+		var array_alpha_value = value[3] if value.size() == 4 else 1.0
+		if not _is_number(array_alpha_value):
+			return _conversion_result(false, null, "Expected Color alpha channel to be numeric")
+		return _conversion_result(true, Color(float(value[0]), float(value[1]), float(value[2]), float(array_alpha_value)))
+
+	return _conversion_result(false, null, "Expected Color as {r, g, b, a?} or [r, g, b, a?]")
+
+func _convert_json_property_value(value, old_value, property_info: Dictionary) -> Dictionary:
+	var property_type = int(property_info.get("type", TYPE_NIL))
+
+	if old_value is PackedVector2Array or property_type == TYPE_PACKED_VECTOR2_ARRAY:
+		return _convert_json_to_packed_vector2_array(value)
+
+	if old_value is Vector2 or property_type == TYPE_VECTOR2:
+		return _convert_json_to_vector2(value)
+
+	if old_value is Color or property_type == TYPE_COLOR:
+		return _convert_json_to_color(value)
+
+	return _conversion_result(true, value)
 
 func _get_target_node(root: Node, node_path: String):
 	return root if node_path == "." else root.get_node_or_null(node_path)
@@ -475,18 +555,25 @@ func handle_set_property(req: Dictionary) -> Dictionary:
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
 
-	if not _object_has_property(node, property):
+	var property_info = _get_property_info(node, property)
+	if property_info.is_empty():
 		rollback_txn()
 		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PROPERTY", "message": "Property not found: " + property, "failed_step": step}}
 
 	var old_value = node.get(property)
-	undo_redo.add_do_property(node, property, value)
+	var converted_value = _convert_json_property_value(value, old_value, property_info)
+	if not bool(converted_value.get("ok", false)):
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "INVALID_PROPERTY_VALUE", "message": "Invalid value for " + property + ": " + str(converted_value.get("message", "")), "failed_step": step}}
+
+	var new_value = converted_value.get("value")
+	undo_redo.add_do_property(node, property, new_value)
 	undo_redo.add_undo_property(node, property, old_value)
 
 	if auto_txn:
 		handle_end_action({"id": ""})
 
-	return {"id": req.id, "ok": true, "data": {"old_value": old_value, "new_value": value}}
+	return {"id": req.id, "ok": true, "data": {"old_value": old_value, "new_value": new_value}}
 
 func handle_delete_node(req: Dictionary) -> Dictionary:
 	var params = req.get("params", {})

@@ -129,6 +129,69 @@ discipline rather than compiler-enforced type safety.
 
 ---
 
+## Scenario: Scene property JSON-to-Variant conversion
+
+### 1. Scope / Trigger
+- Trigger: `set_node_property` receives JSON-compatible MCP payloads for editor properties whose Godot scene persistence expects native Variant types.
+- Trigger: scene save behavior depends on the property being assigned as the correct Godot type before `EditorInterface.save_scene()` runs.
+
+### 2. Signatures
+- Plugin-side handler:
+  - `handle_set_property(req: Dictionary) -> Dictionary`
+- Plugin-side conversion helpers:
+  - `_convert_json_property_value(value, old_value, property_info: Dictionary) -> Dictionary`
+  - `_convert_json_to_vector2(value) -> Dictionary`
+  - `_convert_json_to_packed_vector2_array(value) -> Dictionary`
+  - `_convert_json_to_color(value) -> Dictionary`
+
+### 3. Contracts
+- `set_node_property` request fields:
+  - `node_path`: path to an existing node in the edited scene
+  - `property`: name of an existing Godot property on that node
+  - `value`: JSON-compatible payload from the MCP caller
+- Supported conversion targets:
+  - `Vector2` from `{x, y}` or `[x, y]`
+  - `PackedVector2Array` from an array of `{x, y}` or `[x, y]` points
+  - `Color` from `{r, g, b, a?}` or `[r, g, b, a?]`
+- Conversion must run before `undo_redo.add_do_property(...)`.
+- Unsupported target property types may still pass through unchanged, preserving existing behavior until a concrete conversion need exists.
+
+### 4. Validation & Error Matrix
+- missing node -> `NODE_NOT_FOUND`
+- missing property -> `INVALID_PROPERTY`
+- invalid `Vector2` object or array shape -> `INVALID_PROPERTY_VALUE`
+- invalid `PackedVector2Array` point shape -> `INVALID_PROPERTY_VALUE` with the failing point index
+- invalid `Color` object or array shape -> `INVALID_PROPERTY_VALUE`
+
+### 5. Good/Base/Bad Cases
+- Good: set `Polygon2D.polygon` with `[[0, 0], [64, 0], [64, 64]]`; the plugin converts it to `PackedVector2Array` before saving.
+- Base: set a plain string or number property; unsupported target types pass through unchanged.
+- Bad: set `Line2D.points` with `[["bad", 0]]`; the plugin returns `INVALID_PROPERTY_VALUE` and does not register an editor mutation.
+
+### 6. Tests Required
+- source-level regression proving conversion helpers exist for `Vector2`, `PackedVector2Array`, and `Color`
+- source-level regression proving `handle_set_property` calls `_convert_json_property_value(...)` before `undo_redo.add_do_property(...)`
+- source-level regression proving direct `undo_redo.add_do_property(node, property, value)` is not reintroduced
+- manual Godot verification that `Polygon2D.polygon`, `Line2D.points`, and a green `Color` property persist after `save_current_scene`
+
+### 7. Wrong vs Correct
+#### Wrong
+```gdscript
+var value = params.get("value")
+undo_redo.add_do_property(node, property, value)
+```
+
+#### Correct
+```gdscript
+var old_value = node.get(property)
+var converted_value = _convert_json_property_value(value, old_value, property_info)
+if not bool(converted_value.get("ok", false)):
+	return {"ok": false, "error": {"code": "INVALID_PROPERTY_VALUE"}}
+undo_redo.add_do_property(node, property, converted_value.get("value"))
+```
+
+---
+
 ## Real examples in this repository
 
 - [addons/ai_godot_mcp/plugin.gd](/E:/code/AI-godot-mcp/addons/ai_godot_mcp/plugin.gd)
