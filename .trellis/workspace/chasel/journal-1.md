@@ -370,3 +370,36 @@ Fixed plugin startup parse failure by switching WebSocket listener to Godot 4 TC
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: Fix Godot MCP token discovery
+
+**Date**: 2026-06-30
+**Task**: Fix Godot MCP token discovery
+**Branch**: `main`
+
+### Summary
+
+Implemented project-scoped Godot auth token discovery with legacy fallback, authenticated candidate probing, targeted tests, and build/lint/test/manual Godot smoke verification.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a050d4f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
