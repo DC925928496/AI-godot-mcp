@@ -436,3 +436,36 @@ Verified the dual README product vision and next-direction roadmap task, confirm
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: Fix scene property persistence
+
+**Date**: 2026-06-30
+**Task**: Fix scene property persistence
+**Branch**: `main`
+
+### Summary
+
+Converted MCP JSON property values into Godot Variant types for Vector2, PackedVector2Array, and Color before scene property mutations; added regression coverage and documented the plugin-side contract.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f24a978` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
