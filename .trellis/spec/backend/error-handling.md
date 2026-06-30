@@ -140,3 +140,15 @@ Examples of useful recovery hints:
 - transaction propagation checks for group, reparent, and duplicate operations
 - source-level plugin guardrail checks for official autoload API usage and `Node.reparent`
 - build/test verification after server registration changes
+
+### 6. Wrong vs Correct
+#### Wrong
+- track transaction steps through `current_txn.step_count` when `current_txn` is a plain `Dictionary`
+- set `duplicate.owner = root` or `instance.owner = root` before the node has been added under an ancestor in the edited scene tree
+
+#### Correct
+- increment transaction steps via dictionary key access such as `current_txn["step_count"]`
+- add or reparent the node first, then restore owner through a helper after the node is under a valid ancestor
+
+### 7. Operational gotcha
+- When verifying duplicate/reparent behavior against a real Godot project, confirm the opened project has the updated addon copy loaded. A stale project-local `addons/ai_godot_mcp/` directory can make the live editor behave like the bug is still present even after the repo plugin code is fixed.

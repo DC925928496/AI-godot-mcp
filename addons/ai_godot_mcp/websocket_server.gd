@@ -200,6 +200,26 @@ func handle_end_action(req: Dictionary) -> Dictionary:
 func rollback_txn() -> void:
 	current_txn.clear()
 
+func _increment_txn_step() -> int:
+	var next_step = int(current_txn.get("step_count", 0)) + 1
+	current_txn["step_count"] = next_step
+	return next_step
+
+func _resolve_owner_for_parent(root: Node, parent: Node) -> Node:
+	if parent == root:
+		return root
+	return parent.owner if parent.owner else root
+
+func _restore_node_owner(node: Node, owner: Node) -> void:
+	if owner and node and owner.is_ancestor_of(node):
+		node.owner = owner
+
+func _restore_subtree_owner(node: Node, owner: Node) -> void:
+	_restore_node_owner(node, owner)
+	for child in node.get_children():
+		if child is Node:
+			_restore_subtree_owner(child, owner)
+
 func _validate_path(path: String) -> bool:
 	return path.begins_with("res://") and not path.contains("..") and not path.contains("\\")
 
@@ -492,8 +512,7 @@ func handle_add_node(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "add_node"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	# Validate
 	var parent_path = params.get("parent_path", "")
@@ -517,10 +536,10 @@ func handle_add_node(req: Dictionary) -> Dictionary:
 	# Register operation (deferred execution)
 	var new_node = ClassDB.instantiate(node_type)
 	new_node.name = node_name
-	new_node.owner = root
+	var owner = _resolve_owner_for_parent(root, parent)
 
 	undo_redo.add_do_method(parent, "add_child", new_node)
-	undo_redo.add_do_property(new_node, "owner", root)
+	undo_redo.add_do_method(self, "_restore_node_owner", new_node, owner)
 	undo_redo.add_undo_method(parent, "remove_child", new_node)
 
 	if auto_txn:
@@ -538,8 +557,7 @@ func handle_set_property(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "set_property"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var node_path = params.get("node_path", "")
 	var property = params.get("property", "")
@@ -584,8 +602,7 @@ func handle_delete_node(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "delete_node"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var node_path = params.get("node_path", "")
 	var root = EditorInterface.get_edited_scene_root()
@@ -599,11 +616,15 @@ func handle_delete_node(req: Dictionary) -> Dictionary:
 		return {"id": req.id, "ok": false, "error": {"code": "NODE_NOT_FOUND", "message": "Node not found: " + node_path, "failed_step": step}}
 
 	var parent = node.get_parent()
+	if not parent:
+		rollback_txn()
+		return {"id": req.id, "ok": false, "error": {"code": "NO_PARENT", "message": "Node has no parent", "failed_step": step}}
 	var node_index = node.get_index()
+	var old_owner = node.owner
 	undo_redo.add_do_method(parent, "remove_child", node)
 	undo_redo.add_undo_method(parent, "add_child", node)
 	undo_redo.add_undo_method(parent, "move_child", node, node_index)
-	undo_redo.add_undo_property(node, "owner", node.owner)
+	undo_redo.add_undo_method(self, "_restore_subtree_owner", node, old_owner)
 
 	if auto_txn:
 		handle_end_action({"id": ""})
@@ -653,8 +674,7 @@ func handle_instantiate_scene(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "instantiate_scene"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var parent_path = params.get("parent_path", "")
 	var scene_path = params.get("scene_path", "")
@@ -698,10 +718,10 @@ func handle_instantiate_scene(req: Dictionary) -> Dictionary:
 
 	if node_name != "":
 		instance.name = node_name
-	instance.owner = root
+	var owner = _resolve_owner_for_parent(root, parent)
 
 	undo_redo.add_do_method(parent, "add_child", instance)
-	undo_redo.add_do_property(instance, "owner", root)
+	undo_redo.add_do_method(self, "_restore_subtree_owner", instance, owner)
 	undo_redo.add_undo_method(parent, "remove_child", instance)
 
 	if auto_txn:
@@ -756,8 +776,7 @@ func handle_connect_signal(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "connect_signal"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var source_node_path = params.get("source_node_path", "")
 	var signal_name = params.get("signal_name", "")
@@ -825,8 +844,7 @@ func handle_disconnect_signal(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "disconnect_signal"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var source_node_path = params.get("source_node_path", "")
 	var signal_name = params.get("signal_name", "")
@@ -887,8 +905,7 @@ func handle_attach_script(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "attach_script"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var node_path = params.get("node_path", "")
 	var script_path = params.get("script_path", "")
@@ -1188,8 +1205,7 @@ func handle_add_node_to_group(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "add_node_to_group"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var node_path = params.get("node_path", "")
 	var group_name = params.get("group_name", "")
@@ -1235,8 +1251,7 @@ func handle_remove_node_from_group(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "remove_node_from_group"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var node_path = params.get("node_path", "")
 	var group_name = params.get("group_name", "")
@@ -1281,8 +1296,7 @@ func handle_reparent_node(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "reparent_node"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var node_path = params.get("node_path", "")
 	var new_parent_path = params.get("new_parent_path", "")
@@ -1330,9 +1344,12 @@ func handle_reparent_node(req: Dictionary) -> Dictionary:
 		return {"id": req.id, "ok": true, "data": {"node_path": node_path, "old_parent": old_parent.name, "new_parent": new_parent.name, "unchanged": true}}
 
 	var old_index = node.get_index()
+	var new_owner = _resolve_owner_for_parent(root, new_parent)
 	undo_redo.add_do_method(node, "reparent", new_parent, keep_global_transform)
+	undo_redo.add_do_method(self, "_restore_subtree_owner", node, new_owner)
 	undo_redo.add_undo_method(node, "reparent", old_parent, keep_global_transform)
 	undo_redo.add_undo_method(old_parent, "move_child", node, old_index)
+	undo_redo.add_undo_method(self, "_restore_subtree_owner", node, node.owner)
 
 	if auto_txn:
 		handle_end_action({"id": ""})
@@ -1348,8 +1365,7 @@ func handle_duplicate_node(req: Dictionary) -> Dictionary:
 		txn_id = "auto_" + str(Time.get_ticks_msec())
 		handle_begin_action({"id": "", "params": {"name": "duplicate_node"}, "txn_id": txn_id})
 
-	current_txn.step_count += 1
-	var step = current_txn.step_count
+	var step = _increment_txn_step()
 
 	var node_path = params.get("node_path", "")
 	var new_name = params.get("new_name", "")
@@ -1386,10 +1402,10 @@ func handle_duplicate_node(req: Dictionary) -> Dictionary:
 		duplicate.name = new_name
 	else:
 		duplicate.name = node.name + "_copy"
-	duplicate.owner = root
+	var owner = _resolve_owner_for_parent(root, parent)
 
 	undo_redo.add_do_method(parent, "add_child", duplicate)
-	undo_redo.add_do_property(duplicate, "owner", root)
+	undo_redo.add_do_method(self, "_restore_subtree_owner", duplicate, owner)
 	undo_redo.add_undo_method(parent, "remove_child", duplicate)
 
 	if auto_txn:

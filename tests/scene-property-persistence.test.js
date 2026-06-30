@@ -40,3 +40,20 @@ test("packed Vector2 array conversion reports the invalid point index", () => {
   assert.match(pluginSource, /Invalid Vector2 at index /);
   assert.match(pluginSource, /Expected PackedVector2Array as an array of \{x, y\} or \[x, y\] points/);
 });
+
+test("plugin uses safe transaction step helpers instead of Dictionary property access", () => {
+  assert.match(pluginSource, /func _increment_txn_step\(\) -> int:/);
+  assert.match(pluginSource, /current_txn\["step_count"\] = next_step/);
+  assert.doesNotMatch(pluginSource, /current_txn\.step_count/);
+});
+
+test("scene write operations assign owner only after nodes are attached to the tree", () => {
+  assert.match(pluginSource, /func _restore_node_owner\(node: Node, owner: Node\) -> void:/);
+  assert.match(pluginSource, /func _restore_subtree_owner\(node: Node, owner: Node\) -> void:/);
+  assert.match(pluginSource, /undo_redo\.add_do_method\(self, "_restore_node_owner", new_node, owner\)/);
+  assert.match(pluginSource, /undo_redo\.add_do_method\(self, "_restore_subtree_owner", instance, owner\)/);
+  assert.match(pluginSource, /undo_redo\.add_do_method\(self, "_restore_subtree_owner", duplicate, owner\)/);
+  assert.doesNotMatch(pluginSource, /new_node\.owner = root/);
+  assert.doesNotMatch(pluginSource, /instance\.owner = root/);
+  assert.doesNotMatch(pluginSource, /duplicate\.owner = root/);
+});
